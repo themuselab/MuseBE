@@ -1,7 +1,77 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  password       String?
+  provider       String         @default("email")
+  providerId     String?
+  userType       String         @default("advertiser")
+  ageGroup       String?
+  termsAgreed    Boolean        @default(false)
+  privacyAgreed  Boolean        @default(false)
+  overseasAgreed Boolean        @default(false)
+  adidAgreed     Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  refreshTokens  RefreshToken[]
+  businessInfo   BusinessInfo?
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model BusinessInfo {
+  id               String @id @default(cuid())
+  userId           String @unique
+  industryMain     String
+  industrySub      String?
+  businessName     String?
+  businessDuration String?
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_info")
+}
+
+model PendingGoogleAuth {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  email     String
+  googleId  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@map("pending_google_auth")
+}
+
+model TempAuthCode {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  userId       String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([code])
+  @@map("temp_auth_codes")
 }
