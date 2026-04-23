@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: Muse Auth API
+  version: 1.0.0
+  description: Muse 인증 API
+
+paths:
+  /auth/signup:
+    post:
+      summary: 일반 회원가입
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, userType, ageGroup, terms, business]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  description: 8자 이상, 영문+숫자+특수문자 포함
+                userType:
+                  type: string
+                  enum: [advertiser]
+                ageGroup:
+                  type: string
+                  enum: [20s, 30s, 40s, 50s, 60s_plus]
+                terms:
+                  $ref: '#/components/schemas/Terms'
+                business:
+                  $ref: '#/components/schemas/Business'
+      responses:
+        '201':
+          description: 회원가입 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: 유효성 검사 실패
+        '409':
+          description: 이메일 중복
+
+  /auth/login:
+    post:
+      summary: 일반 로그인
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 로그인 성공
+          headers:
+            Set-Cookie:
+              description: refreshToken httpOnly 쿠키
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResult'
+        '401':
+          description: 이메일/비밀번호 불일치
+
+  /auth/check-email:
+    post:
+      summary: 이메일 중복 확인
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: 확인 결과
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          available:
+                            type: boolean
+
+  /auth/google:
+    get:
+      summary: 구글 OAuth 리다이렉트
+      tags: [Auth - Google]
+      description: Google OAuth 동의 화면으로 리다이렉트. state CSRF 토큰을 httpOnly 쿠키에 저장.
+      responses:
+        '302':
+          description: Google OAuth 동의 화면으로 리다이렉트
+
+  /auth/google/callback:
+    get:
+      summary: 구글 OAuth 콜백
+      tags: [Auth - Google]
+      description: |
+        Google이 authorization code와 state를 전달.
+        - 기존 유저: /login?code=<tempCode> 로 리다이렉트
+        - 신규 유저: /signup?pendingCode=<tempCode> 로 리다이렉트
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 프론트엔드로 리다이렉트
+        '403':
+          description: OAuth state 불일치
+
+  /auth/google/pending:
+    get:
+      summary: 구글 임시코드로 이메일 조회
+      tags: [Auth - Google]
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 이메일 반환
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+        '401':
+          description: 코드 만료/미존재
+
+  /auth/google/signup:
+    post:
+      summary: 구글 회원가입
+      tags: [Auth - Google]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pendingCode, userType, ageGroup, terms, business]
+              properties:
+                pendingCode:
+                  type: string
+                userType:
+                  type: string
+                  enum: [advertiser]
+                ageGroup:
+                  type: string
+                  enum: [20s, 30s, 40s, 50s, 60s_plus]
+                terms:
+                  $ref: '#/components/schemas/Terms'
+                business:
+                  $ref: '#/components/schemas/Business'
+      responses:
+        '201':
+          description: 구글 회원가입 성공
+          headers:
+            Set-Cookie:
+              description: refreshToken httpOnly 쿠키
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResult'
+        '401':
+          description: pendingCode 만료
+
+  /auth/exchange:
+    post:
+      summary: 임시 코드를 Access Token으로 교환
+      tags: [Auth - Google]
+      description: 구글 로그인 완료 후 tempCode를 accessToken으로 교환
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: 토큰 교환 성공
+          headers:
+            Set-Cookie:
+              description: refreshToken httpOnly 쿠키
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResult'
+        '401':
+          description: 코드 만료
+
+  /auth/refresh:
+    post:
+      summary: Access Token 재발급
+      tags: [Auth]
+      description: httpOnly 쿠키의 refreshToken으로 새 accessToken 발급
+      responses:
+        '200':
+          description: 재발급 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+        '401':
+          description: Refresh Token 만료/미존재
+
+  /auth/logout:
+    post:
+      summary: 로그아웃
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      description: DB에서 refreshToken 삭제, 쿠키 제거
+      responses:
+        '200':
+          description: 로그아웃 성공
+
+  /auth/me:
+    get:
+      summary: 현재 유저 정보
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 유저 정보
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: 인증 실패
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Terms:
+      type: object
+      required: [service, privacy, overseas, adid]
+      properties:
+        service:
+          type: boolean
+          enum: [true]
+        privacy:
+          type: boolean
+          enum: [true]
+        overseas:
+          type: boolean
+          enum: [true]
+        adid:
+          type: boolean
+
+    Business:
+      type: object
+      required: [industryMain]
+      properties:
+        industryMain:
+          type: string
+        industrySub:
+          type: string
+        businessName:
+          type: string
+        businessDuration:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        userType:
+          type: string
+        ageGroup:
+          type: string
+          nullable: true
+
+    LoginResult:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+        error:
+          type: object
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        data:
+          type: object
+          nullable: true
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: |
+                AUTH_INVALID_CREDENTIALS (401)
+                AUTH_EMAIL_EXISTS (409)
+                AUTH_TOKEN_EXPIRED (401)
+                AUTH_TOKEN_INVALID (401)
+                AUTH_REFRESH_EXPIRED (401)
+                AUTH_GOOGLE_INVALID (401)
+                AUTH_CODE_EXPIRED (401)
+                AUTH_STATE_MISMATCH (403)
+                VALIDATION_ERROR (400)
+            message:
+              type: string
