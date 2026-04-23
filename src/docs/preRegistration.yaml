@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: Muse Pre-Registration API
+  version: 1.0.0
+  description: 모델 서비스 사전 알림 신청 API
+
+paths:
+  /pre-registration:
+    post:
+      summary: 모델 서비스 사전 알림 신청
+      tags: [PreRegistration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, privacyAgreed, marketingAgreed]
+              properties:
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                  description: 한국 휴대전화 번호 형식 (선택)
+                privacyAgreed:
+                  type: boolean
+                  description: 필수 — 반드시 true
+                marketingAgreed:
+                  type: boolean
+      responses:
+        '201':
+          description: 사전 신청 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      email:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+                  error:
+                    type: null
+        '400':
+          description: 유효성 검사 실패
+        '409':
+          description: 이미 사전 신청된 이메일
