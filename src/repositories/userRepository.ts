@@ -61,3 +61,47 @@ export const createUser = (data: CreateUserData) =>
       },
     },
   });
+
+type UpdateUserData = {
+  ageGroup?: string;
+  business?: {
+    industryMain?: string;
+    businessName?: string;
+    businessDuration?: string;
+  };
+};
+
+export const updateUser = (id: string, data: UpdateUserData) => {
+  const userUpdate: { ageGroup?: string } = {};
+  if (data.ageGroup !== undefined) userUpdate.ageGroup = data.ageGroup;
+
+  const businessUpdate = data.business
+    ? {
+        ...(data.business.industryMain !== undefined && { industryMain: data.business.industryMain }),
+        ...(data.business.businessName !== undefined && { businessName: data.business.businessName }),
+        ...(data.business.businessDuration !== undefined && { businessDuration: data.business.businessDuration }),
+      }
+    : null;
+
+  return prisma.user.update({
+    where: { id },
+    data: {
+      ...userUpdate,
+      ...(businessUpdate && Object.keys(businessUpdate).length > 0
+        ? {
+            businessInfo: {
+              upsert: {
+                create: {
+                  industryMain: businessUpdate.industryMain ?? "",
+                  businessName: businessUpdate.businessName,
+                  businessDuration: businessUpdate.businessDuration,
+                },
+                update: businessUpdate,
+              },
+            },
+          }
+        : {}),
+    },
+    include: { businessInfo: true },
+  });
+};

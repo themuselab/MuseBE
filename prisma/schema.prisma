@@ -75,3 +75,15 @@ model TempAuthCode {
   @@index([code])
   @@map("temp_auth_codes")
 }
+
+model PreRegistration {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  phone           String?
+  privacyAgreed   Boolean  @default(true)
+  marketingAgreed Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([email])
+  @@map("pre_registrations")
+}

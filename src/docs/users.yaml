@@ -1,0 +1,92 @@
+openapi: 3.0.3
+info:
+  title: Muse Users API
+  version: 1.0.0
+  description: Muse 사용자 프로필 API
+
+paths:
+  /users/me:
+    get:
+      summary: 현재 사용자 프로필 조회
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: '#/components/schemas/UserMe'
+                  error: { type: 'null' }
+        '401':
+          description: 인증 필요
+        '404':
+          description: 사용자 없음
+
+    patch:
+      summary: 현재 사용자 프로필 수정
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ageGroup:
+                  type: string
+                  enum: [20s, 30s, 40s, 50s, 60s_plus]
+                business:
+                  type: object
+                  properties:
+                    industryMain: { type: string }
+                    businessName: { type: string, maxLength: 50 }
+                    businessDuration: { type: string }
+      responses:
+        '200':
+          description: 수정 성공 (갱신된 전체 프로필 반환)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: '#/components/schemas/UserMe'
+                  error: { type: 'null' }
+        '400':
+          description: 유효성 검사 실패 (USER_VALIDATION)
+        '401':
+          description: 인증 필요
+        '404':
+          description: 사용자 없음
+
+components:
+  schemas:
+    UserMe:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        userType: { type: string }
+        ageGroup: { type: string, nullable: true }
+        business:
+          nullable: true
+          type: object
+          properties:
+            industryMain: { type: string }
+            industrySub: { type: string, nullable: true }
+            businessName: { type: string, nullable: true }
+            businessDuration: { type: string, nullable: true }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
