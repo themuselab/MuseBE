@@ -19,18 +19,50 @@ type RecommendMoodsInput = {
   extraDescription?: string;
 };
 
-const MOOD_SYSTEM_PROMPT = `너는 한국어 광고 카피라이터다.
-사용자의 업종과 아이템을 듣고 광고 이미지에 어울리는 "분위기 키워드" 5개를 추천한다.
-- 한국어, 6~10자 사이의 짧은 형용 표현
-- 광고 사진의 스타일/감정/시간대를 묘사
-- 서로 다른 톤이어야 함
+export type MoodRecommendation = {
+  id: string;
+  label: string;
+  subtitle: string;
+  ranking: "AI PICK" | null;
+};
 
-반드시 다음 JSON 형식으로 응답: {"moods": ["...", "...", "...", "...", "..."]}
-moods 배열에 5개의 한국어 표현을 채워라. 입력된 업종/아이템에 맞는 실제 분위기로 작성.`;
+const MOOD_SYSTEM_PROMPT = `너는 한국어 광고 카피라이터다.
+사용자의 업종과 아이템을 듣고 광고 이미지에 어울리는 "분위기" 5개를 추천한다.
+
+각 분위기는 다음 필드를 가져야 한다:
+- id: 영어 슬러그 (소문자, 하이픈, 1-2단어, 예: "calm", "fresh", "luxury")
+- label: 한국어 형용사 형태, 2~5자 (예: "차분한", "청량한", "고급스러운")
+- subtitle: 한국어 한 줄 부제, 10~20자 (예: "소프트하고 부드러운 무드")
+
+서로 다른 톤이어야 하고, 입력된 업종/아이템에 맞는 실제 분위기로 작성한다.
+
+반드시 다음 JSON 형식으로 응답:
+{"moods": [{"id":"...","label":"...","subtitle":"..."}, ...]}
+moods 배열에 정확히 5개를 채워라. 첫 번째 항목이 가장 추천하는 것.`;
+
+const fallbackId = (idx: number) => `mood-${idx}`;
+
+const normalizeMood = (
+  raw: unknown,
+  idx: number,
+): MoodRecommendation | null => {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const id = typeof obj.id === "string" && obj.id.length > 0 ? obj.id : fallbackId(idx);
+  const label = typeof obj.label === "string" ? obj.label : null;
+  const subtitle = typeof obj.subtitle === "string" ? obj.subtitle : "";
+  if (!label) return null;
+  return {
+    id,
+    label,
+    subtitle,
+    ranking: idx === 0 ? "AI PICK" : null,
+  };
+};
 
 export async function recommendMoods(
   input: RecommendMoodsInput,
-): Promise<string[]> {
+): Promise<MoodRecommendation[]> {
   const client = getClient();
   const userMsg = [
     `업종: ${input.industry}`,
@@ -52,19 +84,22 @@ export async function recommendMoods(
 
   const raw = response.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as Record<string, unknown>;
-  const moods = parsed["moods"];
-  if (Array.isArray(moods)) {
-    return moods
-      .filter((v): v is string => typeof v === "string")
-      .slice(0, 5);
+  const moodsRaw = parsed["moods"];
+  const arr = Array.isArray(moodsRaw)
+    ? moodsRaw
+    : (Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ??
+      [];
+
+  const ids = new Set<string>();
+  const result: MoodRecommendation[] = [];
+  for (let i = 0; i < arr.length && result.length < 5; i++) {
+    const item = normalizeMood(arr[i], result.length);
+    if (!item) continue;
+    if (ids.has(item.id)) item.id = `${item.id}-${i}`;
+    ids.add(item.id);
+    result.push(item);
   }
-  // 폴백: 첫 번째 배열 값
-  for (const v of Object.values(parsed)) {
-    if (Array.isArray(v)) {
-      return v.filter((x): x is string => typeof x === "string").slice(0, 5);
-    }
-  }
-  return [];
+  return result;
 }
 
 type ComposeAdImageInput = {

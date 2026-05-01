@@ -18,7 +18,7 @@ paths:
                 extraDescription: { type: string }
       responses:
         "200":
-          description: 분위기 추천 5개
+          description: 분위기 추천 5개 (첫 번째 항목이 ranking="AI PICK")
           content:
             application/json:
               schema:
@@ -30,7 +30,16 @@ paths:
                     properties:
                       moods:
                         type: array
-                        items: { type: string }
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, example: "calm" }
+                            label: { type: string, example: "차분한" }
+                            subtitle: { type: string, example: "소프트하고 부드러운 무드" }
+                            ranking:
+                              type: string
+                              nullable: true
+                              enum: ["AI PICK", null]
         "400":
           description: 입력 검증 실패
 
