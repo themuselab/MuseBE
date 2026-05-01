@@ -4,12 +4,20 @@ import path from "node:path";
 import https from "node:https";
 import "dotenv/config";
 
+type ImpressionLabel =
+  | "trust"
+  | "friendly"
+  | "intimate"
+  | "sophisticated"
+  | "lively"
+  | "comfortable";
+
 type MockSpec = {
   slug: string;
   name: string;
   gender: "female" | "male";
-  age: "20" | "30" | "40" | "50" | "60+";
-  primaryLabel: string;
+  age: "20s" | "30s" | "40s" | "50s" | "60s_plus";
+  primaryLabel: ImpressionLabel;
   prompt: string;
 };
 
@@ -18,7 +26,7 @@ const MOCKS: MockSpec[] = [
     slug: "mock-1",
     name: "지유",
     gender: "female",
-    age: "20",
+    age: "20s",
     primaryLabel: "sophisticated",
     prompt:
       "beautiful Korean woman in her 20s, sophisticated editorial style, neutral studio background, front-facing portrait, sharp details, professional lighting",
@@ -27,7 +35,7 @@ const MOCKS: MockSpec[] = [
     slug: "mock-2",
     name: "민준",
     gender: "male",
-    age: "30",
+    age: "30s",
     primaryLabel: "trust",
     prompt:
       "Korean man in his 30s, trustworthy clean look, neutral studio background, front-facing portrait, sharp details, professional lighting",
@@ -36,7 +44,7 @@ const MOCKS: MockSpec[] = [
     slug: "mock-3",
     name: "서연",
     gender: "female",
-    age: "30",
+    age: "30s",
     primaryLabel: "friendly",
     prompt:
       "friendly Korean woman in her 30s, warm smile, neutral studio background, front-facing portrait, sharp details, professional lighting",
@@ -44,6 +52,42 @@ const MOCKS: MockSpec[] = [
 ];
 
 const OUTPUT_DIR = path.resolve(__dirname, "../uploads/catalog");
+
+// primaryLabel별 5축 점수 프리셋 (0~100)
+type Scores = {
+  trust: number;
+  sophisticated: number;
+  friendly: number;
+  stable: number;
+  cheerful: number;
+};
+
+const SCORE_PRESETS: Record<ImpressionLabel, Scores> = {
+  trust: { trust: 90, sophisticated: 70, friendly: 65, stable: 80, cheerful: 50 },
+  sophisticated: { trust: 70, sophisticated: 88, friendly: 55, stable: 65, cheerful: 50 },
+  friendly: { trust: 70, sophisticated: 55, friendly: 90, stable: 60, cheerful: 80 },
+  intimate: { trust: 65, sophisticated: 50, friendly: 85, stable: 60, cheerful: 70 },
+  lively: { trust: 60, sophisticated: 55, friendly: 75, stable: 50, cheerful: 92 },
+  comfortable: { trust: 75, sophisticated: 50, friendly: 75, stable: 88, cheerful: 60 },
+};
+
+const TAG_PRESETS: Record<ImpressionLabel, string[]> = {
+  trust: ["신뢰감", "안정감"],
+  sophisticated: ["세련됨", "신뢰감"],
+  friendly: ["친근감", "유쾌함"],
+  intimate: ["친한형", "친근감"],
+  lively: ["활달함", "유쾌함"],
+  comfortable: ["편안함", "안정감"],
+};
+
+const RECOMMENDED_INDUSTRIES_PRESETS: Record<ImpressionLabel, string[]> = {
+  trust: ["finance", "education", "healthcare"],
+  sophisticated: ["fashion", "beauty", "luxury"],
+  friendly: ["food_beverage", "cafe", "lifestyle"],
+  intimate: ["lifestyle", "cafe", "wellness"],
+  lively: ["sports", "entertainment", "youth_brand"],
+  comfortable: ["home_living", "wellness", "family"],
+};
 
 function downloadToFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -102,10 +146,18 @@ async function main() {
     console.log(`[saved] ${filePath}`);
   }
 
-  const meta = MOCKS.map((spec) => ({
-    ...spec,
-    faceImageUrl: `/uploads/catalog/${spec.slug}.png`,
-  }));
+  // imageUrls는 우선 face 1장을 6번 미러. 추후 다른 사진 들어오면 갱신.
+  const meta = MOCKS.map((spec) => {
+    const faceImageUrl = `/uploads/catalog/${spec.slug}.png`;
+    return {
+      ...spec,
+      faceImageUrl,
+      imageUrls: Array.from({ length: 6 }, () => faceImageUrl),
+      scores: SCORE_PRESETS[spec.primaryLabel],
+      tags: TAG_PRESETS[spec.primaryLabel],
+      recommendedIndustries: RECOMMENDED_INDUSTRIES_PRESETS[spec.primaryLabel],
+    };
+  });
   await fs.writeFile(
     path.join(OUTPUT_DIR, "mock-meta.json"),
     JSON.stringify(meta, null, 2),

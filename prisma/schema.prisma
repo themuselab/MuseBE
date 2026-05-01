@@ -91,18 +91,23 @@ model PreRegistration {
 }
 
 model CatalogModel {
-  id            String   @id @default(cuid())
-  name          String
-  gender        String
-  age           String
-  primaryLabel  String
-  faceImageUrl  String
-  scores        Json?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  jobs          Job[]
+  id                    String   @id @default(cuid())
+  name                  String
+  gender                String
+  age                   String
+  primaryLabel          String
+  faceImageUrl          String
+  imageUrls             Json?
+  tags                  Json?
+  recommendedIndustries Json?
+  scores                Json?
+  rank                  Int?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  jobs                  Job[]
 
   @@index([isActive])
+  @@index([rank])
   @@map("catalog_models")
 }
 
