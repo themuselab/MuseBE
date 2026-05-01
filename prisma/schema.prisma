@@ -23,6 +23,8 @@ model User {
   updatedAt      DateTime       @updatedAt
   refreshTokens  RefreshToken[]
   businessInfo   BusinessInfo?
+  jobs           Job[]
+  usageMonthly   UsageMonthly[]
 
   @@unique([provider, providerId])
   @@map("users")
@@ -86,4 +88,81 @@ model PreRegistration {
 
   @@index([email])
   @@map("pre_registrations")
+}
+
+model CatalogModel {
+  id            String   @id @default(cuid())
+  name          String
+  gender        String
+  age           String
+  primaryLabel  String
+  faceImageUrl  String
+  scores        Json?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  jobs          Job[]
+
+  @@index([isActive])
+  @@map("catalog_models")
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  aspectRatio String
+  width       Int
+  height      Int
+  schema      Json
+  previewUrl  String?
+  createdAt   DateTime @default(now())
+  jobs        Job[]
+
+  @@map("templates")
+}
+
+model Job {
+  id                String        @id @default(cuid())
+  userId            String
+  catalogModelId    String?
+  templateId        String?
+  prompt            String
+  headline          String?
+  subhead           String?
+  industry          String?
+  item              String?
+  extraDescription  String?
+  mood              String?
+  productImagePath  String?
+  status            String        @default("queued")
+  progress          Int           @default(0)
+  errorMessage      String?
+  resultUrl         String?
+  intermediateUrls  Json?
+  costCents         Int?
+  seed              BigInt?
+  falRequestId      String?
+  createdAt         DateTime      @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalogModel      CatalogModel? @relation(fields: [catalogModelId], references: [id], onDelete: SetNull)
+  template          Template?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("jobs")
+}
+
+model UsageMonthly {
+  userId         String
+  yearMonth      String
+  totalJobs      Int      @default(0)
+  totalCostCents Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, yearMonth])
+  @@map("usage_monthly")
 }
