@@ -1,0 +1,147 @@
+paths:
+  /ads/moods:
+    post:
+      tags: [Ads]
+      summary: 광고 분위기 추천 (GPT-4o-mini)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [industry, item]
+              properties:
+                industry: { type: string, example: "카페" }
+                item: { type: string, example: "라떼" }
+                extraDescription: { type: string }
+      responses:
+        "200":
+          description: 분위기 추천 5개
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      moods:
+                        type: array
+                        items: { type: string }
+        "400":
+          description: 입력 검증 실패
+
+  /ads/generate:
+    post:
+      tags: [Ads]
+      summary: 광고 이미지 생성 작업 등록 (비동기)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [catalogModelId, prompt, productImage]
+              properties:
+                catalogModelId: { type: string }
+                prompt: { type: string }
+                headline: { type: string }
+                subhead: { type: string }
+                industry: { type: string }
+                item: { type: string }
+                extraDescription: { type: string }
+                mood: { type: string }
+                productImage:
+                  type: string
+                  format: binary
+      responses:
+        "202":
+          description: 작업 큐잉 완료
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      jobId: { type: string }
+                      status: { type: string, example: queued }
+                      estimatedSeconds: { type: integer }
+                      pollUrl: { type: string }
+        "400":
+          description: 입력 검증 실패 / 제품 이미지 누락
+        "404":
+          description: 카탈로그 모델 없음
+
+  /ads/jobs:
+    get:
+      tags: [Ads]
+      summary: 내 광고 생성 히스토리 목록
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [queued, processing, completed, failed] }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: 히스토리 페이지
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      items: { type: array, items: { type: object } }
+                      nextCursor: { type: string, nullable: true }
+
+  /ads/jobs/{id}:
+    get:
+      tags: [Ads]
+      summary: 광고 작업 상세 조회 (폴링용, 본인 것만)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 작업 상태 + 결과
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      status: { type: string }
+                      progress: { type: integer }
+                      resultUrl: { type: string, nullable: true }
+                      errorMessage: { type: string, nullable: true }
+                      intermediateUrls: { type: object, nullable: true }
+                      costCents: { type: integer, nullable: true }
+        "403":
+          description: 본인 작업이 아님 (AD_JOB_FORBIDDEN)
+        "404":
+          description: 작업 없음

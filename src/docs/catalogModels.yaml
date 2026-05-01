@@ -1,0 +1,48 @@
+paths:
+  /catalog-models:
+    get:
+      tags: [CatalogModels]
+      summary: 카탈로그 모델 목록 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: gender
+          schema: { type: string, enum: [all, female, male] }
+        - in: query
+          name: age
+          schema: { type: string, enum: [all, "20", "30", "40", "50", "60+"] }
+        - in: query
+          name: primaryLabel
+          schema:
+            type: string
+            enum: [all, trust, friendly, intimate, sophisticated, lively, comfortable]
+        - in: query
+          name: keyword
+          schema: { type: string }
+      responses:
+        "200":
+          description: 모델 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            name: { type: string }
+                            gender: { type: string }
+                            age: { type: string }
+                            primaryLabel: { type: string }
+                            faceImageUrl: { type: string }
+        "401":
+          description: 인증 실패
