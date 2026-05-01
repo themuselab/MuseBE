@@ -57,11 +57,26 @@ export async function generateScene(
 
   const image = result.data.images[0];
   if (!image) throw new Error("fal.ai returned no image");
+  // fal.ai의 seed가 종종 int64 범위를 초과하는 큰 정수라 bigint 캐스팅 시 PG에서 거부됨.
+  // 안전 범위 안일 때만 저장, 아니면 null.
+  const PG_BIGINT_MAX = 9223372036854775807n;
+  const rawSeed = result.data.seed;
+  let seed: bigint | null = null;
+  if (rawSeed != null) {
+    try {
+      const candidate = BigInt(rawSeed);
+      if (candidate >= -PG_BIGINT_MAX && candidate <= PG_BIGINT_MAX) {
+        seed = candidate;
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
   return {
     imageUrl: image.url,
     width: image.width ?? 0,
     height: image.height ?? 0,
-    seed: result.data.seed != null ? BigInt(result.data.seed) : null,
+    seed,
     requestId: result.requestId,
   };
 }

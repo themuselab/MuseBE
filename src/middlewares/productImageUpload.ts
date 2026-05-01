@@ -34,3 +34,4 @@ export const productImageUpload = multer({
     cb(null, true);
   },
 });
+
