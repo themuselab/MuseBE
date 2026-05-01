@@ -30,3 +30,16 @@ export const handleListCatalogModels = async (
     next(err);
   }
 };
+
+export const handleListTopCatalogModels = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const items = await catalogModelService.listTop(5);
+    res.json(createSuccessResponse({ items }));
+  } catch (err) {
+    next(err);
+  }
+};
