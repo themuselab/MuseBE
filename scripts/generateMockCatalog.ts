@@ -6,11 +6,11 @@ import "dotenv/config";
 
 type ImpressionLabel =
   | "trust"
-  | "friendly"
-  | "intimate"
   | "sophisticated"
-  | "lively"
-  | "comfortable";
+  | "friendly"
+  | "comfortable"
+  | "professional"
+  | "lively";
 
 type MockSpec = {
   slug: string;
@@ -53,40 +53,42 @@ const MOCKS: MockSpec[] = [
 
 const OUTPUT_DIR = path.resolve(__dirname, "../uploads/catalog");
 
-// primaryLabel별 5축 점수 프리셋 (0~100)
+// primaryLabel별 6축 점수 프리셋 (0~100)
+// 6축: trust(신뢰감), sophisticated(세련됨), friendly(친근함), comfortable(편안함), professional(전문성), lively(활발함)
 type Scores = {
   trust: number;
   sophisticated: number;
   friendly: number;
-  stable: number;
-  cheerful: number;
+  comfortable: number;
+  professional: number;
+  lively: number;
 };
 
 const SCORE_PRESETS: Record<ImpressionLabel, Scores> = {
-  trust: { trust: 90, sophisticated: 70, friendly: 65, stable: 80, cheerful: 50 },
-  sophisticated: { trust: 70, sophisticated: 88, friendly: 55, stable: 65, cheerful: 50 },
-  friendly: { trust: 70, sophisticated: 55, friendly: 90, stable: 60, cheerful: 80 },
-  intimate: { trust: 65, sophisticated: 50, friendly: 85, stable: 60, cheerful: 70 },
-  lively: { trust: 60, sophisticated: 55, friendly: 75, stable: 50, cheerful: 92 },
-  comfortable: { trust: 75, sophisticated: 50, friendly: 75, stable: 88, cheerful: 60 },
+  trust:         { trust: 92, sophisticated: 70, friendly: 65, comfortable: 75, professional: 80, lively: 50 },
+  sophisticated: { trust: 70, sophisticated: 92, friendly: 55, comfortable: 60, professional: 78, lively: 55 },
+  friendly:      { trust: 75, sophisticated: 55, friendly: 92, comfortable: 78, professional: 60, lively: 78 },
+  comfortable:   { trust: 80, sophisticated: 55, friendly: 78, comfortable: 92, professional: 65, lively: 60 },
+  professional:  { trust: 80, sophisticated: 75, friendly: 55, comfortable: 60, professional: 92, lively: 55 },
+  lively:        { trust: 60, sophisticated: 60, friendly: 78, comfortable: 60, professional: 55, lively: 92 },
 };
 
 const TAG_PRESETS: Record<ImpressionLabel, string[]> = {
-  trust: ["신뢰감", "안정감"],
-  sophisticated: ["세련됨", "신뢰감"],
-  friendly: ["친근감", "유쾌함"],
-  intimate: ["친한형", "친근감"],
-  lively: ["활달함", "유쾌함"],
-  comfortable: ["편안함", "안정감"],
+  trust: ["신뢰감", "전문성"],
+  sophisticated: ["세련됨", "전문성"],
+  friendly: ["친근함", "활발함"],
+  comfortable: ["편안함", "친근함"],
+  professional: ["전문성", "신뢰감"],
+  lively: ["활발함", "친근함"],
 };
 
 const RECOMMENDED_INDUSTRIES_PRESETS: Record<ImpressionLabel, string[]> = {
-  trust: ["finance", "education", "healthcare"],
-  sophisticated: ["fashion", "beauty", "luxury"],
-  friendly: ["food_beverage", "cafe", "lifestyle"],
-  intimate: ["lifestyle", "cafe", "wellness"],
-  lively: ["sports", "entertainment", "youth_brand"],
-  comfortable: ["home_living", "wellness", "family"],
+  trust: ["finance_insurance", "law_security_defense", "health_medical"],
+  sophisticated: ["fashion_beauty", "culture_art_design", "hospitality_leisure"],
+  friendly: ["food_service", "education_science", "social_welfare_religion"],
+  comfortable: ["health_medical", "social_welfare_religion", "food_service"],
+  professional: ["management_accounting", "law_security_defense", "information_communication"],
+  lively: ["hospitality_leisure", "culture_art_design", "sales"],
 };
 
 function downloadToFile(url: string, dest: string): Promise<void> {

@@ -16,16 +16,18 @@ type Scores = {
   trust: number;
   sophisticated: number;
   friendly: number;
-  stable: number;
-  cheerful: number;
+  comfortable: number;
+  professional: number;
+  lively: number;
 };
 
 const DEFAULT_SCORES: Scores = {
   trust: 60,
   sophisticated: 60,
   friendly: 60,
-  stable: 60,
-  cheerful: 60,
+  comfortable: 60,
+  professional: 60,
+  lively: 60,
 };
 
 const toStringArray = (value: unknown): string[] => {
@@ -43,8 +45,11 @@ const toScores = (value: unknown): Scores => {
         ? v.sophisticated
         : DEFAULT_SCORES.sophisticated,
     friendly: typeof v.friendly === "number" ? v.friendly : DEFAULT_SCORES.friendly,
-    stable: typeof v.stable === "number" ? v.stable : DEFAULT_SCORES.stable,
-    cheerful: typeof v.cheerful === "number" ? v.cheerful : DEFAULT_SCORES.cheerful,
+    comfortable:
+      typeof v.comfortable === "number" ? v.comfortable : DEFAULT_SCORES.comfortable,
+    professional:
+      typeof v.professional === "number" ? v.professional : DEFAULT_SCORES.professional,
+    lively: typeof v.lively === "number" ? v.lively : DEFAULT_SCORES.lively,
   };
 };
 

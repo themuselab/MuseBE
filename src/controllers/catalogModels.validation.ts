@@ -12,11 +12,11 @@ export const AGE_FILTER_VALUES = [
 export const IMPRESSION_FILTER_VALUES = [
   "all",
   "trust",
-  "friendly",
-  "intimate",
   "sophisticated",
-  "lively",
+  "friendly",
   "comfortable",
+  "professional",
+  "lively",
 ] as const;
 
 export const listCatalogModelsQuerySchema = z.object({
@@ -45,13 +45,13 @@ export const AGE_DISPLAY: Record<
 };
 
 export const IMPRESSION_TAG_DISPLAY: Record<
-  "trust" | "friendly" | "intimate" | "sophisticated" | "lively" | "comfortable",
+  "trust" | "sophisticated" | "friendly" | "comfortable" | "professional" | "lively",
   string
 > = {
   trust: "신뢰감",
-  friendly: "친근감",
-  intimate: "친한형",
   sophisticated: "세련됨",
-  lively: "활달함",
+  friendly: "친근함",
   comfortable: "편안함",
+  professional: "전문성",
+  lively: "활발함",
 };
