@@ -26,7 +26,8 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY prisma ./prisma
-COPY src/docs ./src/docs
+# swagger.ts loads yaml via __dirname = dist/docs at runtime
+COPY src/docs/*.yaml ./dist/docs/
 
 RUN mkdir -p /app/uploads
 
