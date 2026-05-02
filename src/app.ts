@@ -14,6 +14,10 @@ import { swaggerDocument } from "./docs/swagger";
 
 const app = express();
 
+// API 응답에 ETag 사용 시 304가 빈 body로 와서 클라이언트 fetch가 JSON 파싱 실패.
+// 폴링/캐시 일관성 위해 글로벌 비활성.
+app.set("etag", false);
+
 app.use(cors({
   origin: process.env.FRONTEND_URL ?? "http://localhost:3000",
   credentials: true,
