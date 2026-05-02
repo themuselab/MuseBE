@@ -19,6 +19,36 @@ const parse = <T>(
   }
 };
 
+export const handleUploadProductImage = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) throw userErrors.unauthorized();
+
+    const file = req.file;
+    if (!file) throw adErrors.productImageRequired();
+
+    const productRel = path
+      .relative(path.resolve(__dirname, "../../uploads"), file.path)
+      .split(path.sep)
+      .join("/");
+    const productImagePath = getPublicUrl(productRel);
+
+    res.status(201).json(
+      createSuccessResponse({
+        productImagePath,
+        filename: file.originalname,
+        size: file.size,
+      }),
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const handleGenerateAd = async (
   req: Request,
   res: Response,
@@ -30,18 +60,6 @@ export const handleGenerateAd = async (
 
     const dto = parse(generateAdSchema, req.body);
 
-    const file = req.file;
-    if (!file) throw adErrors.productImageRequired();
-
-    const productRel = path
-      .relative(
-        path.resolve(__dirname, "../../uploads"),
-        file.path,
-      )
-      .split(path.sep)
-      .join("/");
-    const productPublicUrl = getPublicUrl(productRel);
-
     const result = await jobService.createJob({
       userId,
       catalogModelId: dto.catalogModelId,
@@ -52,7 +70,7 @@ export const handleGenerateAd = async (
       item: dto.item,
       extraDescription: dto.extraDescription,
       mood: dto.mood,
-      productImagePath: productPublicUrl,
+      productImagePath: dto.productImagePath,
     });
 
     res.status(202).json(createSuccessResponse(result));

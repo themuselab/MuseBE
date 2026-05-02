@@ -43,10 +43,10 @@ paths:
         "400":
           description: 입력 검증 실패
 
-  /ads/generate:
+  /ads/products:
     post:
       tags: [Ads]
-      summary: 광고 이미지 생성 작업 등록 (비동기)
+      summary: 제품 이미지 업로드 (광고 생성 전 단계)
       security:
         - bearerAuth: []
       requestBody:
@@ -55,9 +55,51 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [catalogModelId, prompt, productImage]
+              required: [productImage]
+              properties:
+                productImage:
+                  type: string
+                  format: binary
+                  description: png/jpeg/webp, 최대 10MB
+      responses:
+        "201":
+          description: 업로드 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      productImagePath:
+                        type: string
+                        example: /uploads/products/{userId}/abc.png
+                      filename: { type: string }
+                      size: { type: integer }
+        "400":
+          description: 파일 누락 또는 mimetype/size 위반
+
+  /ads/generate:
+    post:
+      tags: [Ads]
+      summary: 광고 이미지 생성 작업 등록 (비동기)
+      description: 사전에 POST /ads/products로 업로드한 productImagePath를 함께 전달
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [catalogModelId, prompt, productImagePath]
               properties:
                 catalogModelId: { type: string }
+                productImagePath:
+                  type: string
+                  example: /uploads/products/{userId}/abc.png
                 prompt: { type: string }
                 headline: { type: string }
                 subhead: { type: string }
@@ -65,9 +107,6 @@ paths:
                 item: { type: string }
                 extraDescription: { type: string }
                 mood: { type: string }
-                productImage:
-                  type: string
-                  format: binary
       responses:
         "202":
           description: 작업 큐잉 완료
@@ -85,7 +124,7 @@ paths:
                       estimatedSeconds: { type: integer }
                       pollUrl: { type: string }
         "400":
-          description: 입력 검증 실패 / 제품 이미지 누락
+          description: 입력 검증 실패
         "404":
           description: 카탈로그 모델 없음
 

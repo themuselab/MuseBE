@@ -3,6 +3,7 @@ import {
   handleGenerateAd,
   handleGetJob,
   handleListMyJobs,
+  handleUploadProductImage,
 } from "../controllers/jobController";
 import { handleRecommendMoods } from "../controllers/moodController";
 import { authMiddleware } from "../middlewares/authMiddleware";
@@ -13,11 +14,13 @@ const router = Router();
 router.post("/moods", authMiddleware, handleRecommendMoods);
 
 router.post(
-  "/generate",
+  "/products",
   authMiddleware,
   productImageUpload.single("productImage"),
-  handleGenerateAd,
+  handleUploadProductImage,
 );
+
+router.post("/generate", authMiddleware, handleGenerateAd);
 
 router.get("/jobs", authMiddleware, handleListMyJobs);
 router.get("/jobs/:id", authMiddleware, handleGetJob);
