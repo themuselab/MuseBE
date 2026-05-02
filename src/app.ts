@@ -33,29 +33,36 @@ app.use("/pre-registration", preRegistrationRouter);
 app.use("/catalog-models", catalogModelRouter);
 app.use("/ads", adRouter);
 
-// 정적 업로드 파일 — 인증 가드 + 본인 폴더만
+// 정적 업로드 파일
 const uploadsRoot = path.resolve(__dirname, "../uploads");
 
+// 카탈로그는 공개 (모든 로그인 회원이 보는 공용 자산 — 브라우저 <img> 직접 표시 위해 비인증)
+app.use("/uploads/catalog", express.static(path.join(uploadsRoot, "catalog")));
+
+// 그 외 (products / ads / intermediate) — 인증 + 본인 폴더만
 const ownsRequestedPath = (req: Request, userId: string): boolean => {
-  // /uploads/<category>/<userId>/... 형태만 허용 (catalog는 공용)
+  // path = "/<userId>/..." (앞 카테고리는 라우트 prefix로 이미 소비됨)
   const segments = req.path.split("/").filter(Boolean);
-  if (segments.length < 2) return false;
-  const [category, owner] = segments;
-  if (category === "catalog") return true;
+  if (segments.length < 1) return false;
+  const owner = segments[0];
   return owner === userId;
 };
 
-app.use(
-  "/uploads",
-  authMiddleware,
-  (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).end();
-    if (!ownsRequestedPath(req, userId)) return res.status(403).end();
-    next();
-  },
-  express.static(uploadsRoot),
-);
+const authedStaticGuard = (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).end();
+  if (!ownsRequestedPath(req, userId)) return res.status(403).end();
+  next();
+};
+
+for (const folder of ["products", "ads", "intermediate"]) {
+  app.use(
+    `/uploads/${folder}`,
+    authMiddleware,
+    authedStaticGuard,
+    express.static(path.join(uploadsRoot, folder)),
+  );
+}
 
 app.use(errorHandler);
 
