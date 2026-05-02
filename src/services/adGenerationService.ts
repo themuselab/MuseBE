@@ -1,14 +1,15 @@
 import path from "node:path";
 import * as jobRepository from "../repositories/jobRepository";
 import * as catalogModelRepository from "../repositories/catalogModelRepository";
-import { generateScene, faceSwap } from "../lib/fal";
-import { composeAdImage } from "../lib/openai";
+import { generateScene, faceSwapWithUpload } from "../lib/fal";
+import fs from "node:fs/promises";
+import { composeAdImage, recommendAdCopy } from "../lib/openai";
+import type { TextOverlay } from "../lib/openai";
 import { overlayKoreanText } from "../lib/pilClient";
 import {
   saveBuffer,
   downloadToFile,
   getAbsolutePath,
-  getPublicUrl,
 } from "../lib/localStorage";
 import { startAdGenerationWorker } from "../lib/queue";
 import type { AdGenerationJobData } from "../lib/queue";
@@ -38,8 +39,6 @@ const buildScenePrompt = (params: {
 };
 
 const buildComposePrompt = (params: {
-  headline?: string | null;
-  subhead?: string | null;
   item?: string | null;
 }): string => {
   const lines: string[] = [
@@ -51,11 +50,11 @@ const buildComposePrompt = (params: {
     );
   }
   lines.push(
-    "원본 인물의 얼굴/체형/의상 톤은 유지. 한글 카피는 빈 영역으로 남겨둘 것.",
+    "**매우 중요**: 이미지에 어떤 텍스트도 그리지 말 것. 한글, 영문, 숫자, 로고, 워터마크, 문자 형태 모두 절대 금지. 텍스트 영역은 완전히 비워둘 것 (텍스트는 후처리로 별도 추가됨).",
   );
-  if (params.headline) {
-    lines.push(`(참고: 헤드라인은 "${params.headline}"로 사용 예정)`);
-  }
+  lines.push(
+    "원본 인물의 얼굴/체형/의상 톤은 유지. 사진에는 사람과 제품, 배경만 있도록.",
+  );
   return lines.join("\n");
 };
 
@@ -111,7 +110,7 @@ const processAdGenerationJob = async (
     });
     const scene = await generateScene({
       prompt: scenePrompt,
-      imageSize: "square_hd",
+      imageSize: "portrait_4_3",
     });
     seedValue = scene.seed;
     lastFalRequestId = scene.requestId;
@@ -133,8 +132,6 @@ const processAdGenerationJob = async (
         intermediateUrls: intermediate,
       });
       const composedPrompt = buildComposePrompt({
-        headline: job.headline,
-        subhead: job.subhead,
         item: job.item,
       });
       const personPath = getAbsolutePath(
@@ -148,7 +145,7 @@ const processAdGenerationJob = async (
         personImagePath: personPath,
         productImagePath: productAbsPath,
         prompt: composedPrompt,
-        size: "1024x1024",
+        size: "1024x1536",
         quality: "high",
       });
       const composedRel = path.join(
@@ -166,25 +163,23 @@ const processAdGenerationJob = async (
       composedAbsPath = getAbsolutePath(sceneRel.split(path.sep).join("/"));
     }
 
-    // 3. fal.ai face-swap with catalog model face
+    // 3. fal.ai face-swap with catalog model face (via fal.storage.upload)
     await jobRepository.updateJob(jobId, {
       progress: 65,
       intermediateUrls: intermediate,
     });
-    const composedPublicUrl = process.env.PUBLIC_BASE_URL
-      ? `${process.env.PUBLIC_BASE_URL}${getPublicUrl(
-          path.relative(getAbsolutePath(""), composedAbsPath),
-        )}`
-      : null;
-    const catalogPublicUrl = process.env.PUBLIC_BASE_URL
-      ? `${process.env.PUBLIC_BASE_URL}${catalog.faceImageUrl}`
-      : null;
 
+    // composed 이미지 buffer + 카탈로그 face buffer를 fal.storage에 업로드 → swap
     let swappedUrl: string | null = null;
-    if (composedPublicUrl && catalogPublicUrl) {
-      const swapped = await faceSwap({
-        baseImageUrl: composedPublicUrl,
-        swapImageUrl: catalogPublicUrl,
+    try {
+      const composedBuffer = await fs.readFile(composedAbsPath);
+      const catalogFaceRel = catalog.faceImageUrl.replace(/^\/uploads\//, "");
+      const catalogFaceBuffer = await fs.readFile(getAbsolutePath(catalogFaceRel));
+
+      const swapped = await faceSwapWithUpload({
+        composedBuffer,
+        catalogFaceBuffer,
+        jobId: job.id,
       });
       swappedUrl = swapped.imageUrl;
       lastFalRequestId = swapped.requestId;
@@ -196,11 +191,12 @@ const processAdGenerationJob = async (
         "swapped.png",
       );
       intermediate.swapped = await downloadToFile(swappedUrl, swappedRel);
-    } else {
-      // PUBLIC_BASE_URL 미설정 (로컬 테스트) — face-swap 스킵하고 composed 결과 그대로 사용
+    } catch (err) {
       console.warn(
-        `[ad-worker] PUBLIC_BASE_URL not set, skipping face-swap for job ${jobId}`,
+        `[ad-worker] face-swap failed for job ${jobId}, using composed result:`,
+        err instanceof Error ? err.message : err,
       );
+      // face-swap 실패해도 composed 결과는 있으므로 폴백으로 진행
     }
 
     // 4. PIL overlay (한글 카피)
@@ -242,11 +238,29 @@ const processAdGenerationJob = async (
     const resultRel = path.join("ads", job.userId, `${job.id}.png`);
     const resultUrl = await saveBuffer(resultRel, finalBuffer);
 
+    // 광고 카피 메타데이터 생성 (편집 가능 텍스트 레이어용)
+    let textOverlays: TextOverlay[] = [];
+    try {
+      textOverlays = await recommendAdCopy({
+        industry: job.industry ?? "",
+        item: job.item ?? "",
+        mood: job.mood ?? undefined,
+        extraDescription: job.extraDescription ?? undefined,
+      });
+    } catch (err) {
+      console.warn(
+        `[ad-worker] recommendAdCopy failed for job ${jobId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      // 카피 생성 실패해도 이미지는 완성된 상태이므로 빈 배열로 진행
+    }
+
     await jobRepository.updateJob(jobId, {
       status: "completed",
       progress: 100,
       resultUrl,
       intermediateUrls: intermediate,
+      textOverlays: textOverlays as unknown as import("@prisma/client").Prisma.InputJsonValue,
       costCents: totalCostCents,
       seed: seedValue,
       falRequestId: lastFalRequestId,

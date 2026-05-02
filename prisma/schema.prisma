@@ -143,6 +143,7 @@ model Job {
   errorMessage      String?
   resultUrl         String?
   intermediateUrls  Json?
+  textOverlays      Json?
   costCents         Int?
   seed              BigInt?
   falRequestId      String?

@@ -64,6 +64,7 @@ type UpdateProgressData = {
   errorMessage?: string | null;
   resultUrl?: string | null;
   intermediateUrls?: Prisma.InputJsonValue;
+  textOverlays?: Prisma.InputJsonValue;
   costCents?: number;
   seed?: bigint | null;
   falRequestId?: string | null;

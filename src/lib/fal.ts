@@ -47,7 +47,7 @@ export async function generateScene(
     input: {
       prompt: input.prompt,
       loras,
-      image_size: input.imageSize ?? "square_hd",
+      image_size: input.imageSize ?? "portrait_4_3",
       num_inference_steps: input.numInferenceSteps ?? 30,
       guidance_scale: input.guidanceScale ?? 3.5,
       num_images: 1,
@@ -112,4 +112,35 @@ export async function faceSwap(input: FaceSwapInput): Promise<FaceSwapResult> {
     imageUrl: image.url,
     requestId: result.requestId,
   };
+}
+
+// fal.storage에 buffer 업로드 → 외부 fetch 가능한 영구 URL 반환
+// fal.ai 서버가 우리 로컬 BE 이미지를 못 가져오는 문제를 우회. (FAL_KEY로 인증, GCP/S3 등 별도 스토리지 불필요)
+export async function uploadToFalStorage(
+  buffer: Buffer,
+  filename: string,
+  mimeType = "image/png",
+): Promise<string> {
+  ensureConfigured();
+  // fal.storage.upload는 Blob/File을 받음 (Node 18+ 글로벌 Blob).
+  // Node Buffer를 Uint8Array(ArrayBuffer 기반)로 복사해 BlobPart 타입 호환.
+  const u8 = new Uint8Array(buffer.byteLength);
+  u8.set(buffer);
+  const blob = new Blob([u8], { type: mimeType });
+  const file = new File([blob], filename, { type: mimeType });
+  return fal.storage.upload(file);
+}
+
+// 합성 이미지(buffer) + 카탈로그 face(파일 경로) → fal.storage 업로드 → face-swap 호출
+export async function faceSwapWithUpload(input: {
+  composedBuffer: Buffer;
+  catalogFaceBuffer: Buffer;
+  jobId: string;
+}): Promise<FaceSwapResult> {
+  ensureConfigured();
+  const [baseUrl, swapUrl] = await Promise.all([
+    uploadToFalStorage(input.composedBuffer, `composed-${input.jobId}.png`),
+    uploadToFalStorage(input.catalogFaceBuffer, `catalog-face-${input.jobId}.png`),
+  ]);
+  return faceSwap({ baseImageUrl: baseUrl, swapImageUrl: swapUrl });
 }

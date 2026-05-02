@@ -102,6 +102,142 @@ export async function recommendMoods(
   return result;
 }
 
+// ──────────── 광고 카피 자동 생성 (편집 가능 텍스트 레이어용) ────────────
+
+export type TextOverlay = {
+  id: string;
+  content: string;
+  // 위치/크기는 캔버스 % 단위 (FE TextLayer와 동일 좌표계)
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  color: string; // hex
+  textAlign: "left" | "center" | "right";
+};
+
+const COPY_SYSTEM_PROMPT = `너는 한국어 광고 카피라이터다.
+업종/아이템/분위기를 듣고 광고 이미지에 어울리는 헤드라인 1개와 서브카피 1개를 만든다.
+
+각 텍스트 객체는 다음 필드를 가져야 한다:
+- id: 영어 슬러그 ("headline" 또는 "subhead")
+- content: 한국어 텍스트
+  - headline: 6~14자, 강한 임팩트
+  - subhead: 10~25자, 부연
+- y: 0~100 (캔버스 세로 위치 %, 0=상단, 100=하단)
+- fontSize: 24~64 (px)
+- fontWeight: "bold" 또는 "normal"
+- color: "#ffffff" 또는 "#1a1a1a"
+
+위치 가이드:
+- headline은 보통 상단(y=8) 또는 하단(y=78)
+- subhead는 headline 바로 아래 (y=22 또는 y=88)
+
+반드시 다음 JSON 구조로 응답:
+{"overlays":[
+  {"id":"headline","content":"...","y":8,"fontSize":56,"fontWeight":"bold","color":"#ffffff"},
+  {"id":"subhead","content":"...","y":22,"fontSize":24,"fontWeight":"normal","color":"#ffffff"}
+]}`;
+
+const DEFAULT_OVERLAY_LAYOUT = {
+  headline: { x: 5, y: 8, width: 90, height: 14, textAlign: "left" as const },
+  subhead: { x: 5, y: 22, width: 90, height: 8, textAlign: "left" as const },
+};
+
+const normalizeOverlay = (
+  raw: unknown,
+  fallbackId: "headline" | "subhead",
+): TextOverlay | null => {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const content = typeof obj.content === "string" ? obj.content.trim() : "";
+  if (!content) return null;
+
+  const id = typeof obj.id === "string" && obj.id.length > 0 ? obj.id : fallbackId;
+  const layoutKey = id === "headline" || id === "subhead" ? id : fallbackId;
+  const layout = DEFAULT_OVERLAY_LAYOUT[layoutKey];
+
+  const y = typeof obj.y === "number" ? Math.max(0, Math.min(95, obj.y)) : layout.y;
+  const fontSize =
+    typeof obj.fontSize === "number"
+      ? Math.max(14, Math.min(96, obj.fontSize))
+      : layoutKey === "headline"
+        ? 48
+        : 22;
+  const fontWeight =
+    obj.fontWeight === "bold"
+      ? ("bold" as const)
+      : layoutKey === "headline"
+        ? ("bold" as const)
+        : ("normal" as const);
+  const colorStr = typeof obj.color === "string" ? obj.color : "#ffffff";
+  const color = /^#[0-9a-fA-F]{6}$/.test(colorStr) ? colorStr : "#ffffff";
+
+  return {
+    id,
+    content,
+    x: layout.x,
+    y,
+    width: layout.width,
+    height: layout.height,
+    fontSize,
+    fontWeight,
+    color,
+    textAlign: layout.textAlign,
+  };
+};
+
+export async function recommendAdCopy(input: {
+  industry: string;
+  item: string;
+  mood?: string;
+  extraDescription?: string;
+}): Promise<TextOverlay[]> {
+  const client = getClient();
+  const userMsg = [
+    `업종: ${input.industry}`,
+    `아이템: ${input.item}`,
+    input.mood ? `분위기: ${input.mood}` : "",
+    input.extraDescription ? `추가 설명: ${input.extraDescription}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: COPY_SYSTEM_PROMPT },
+      { role: "user", content: userMsg },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const raw = response.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const arr = Array.isArray(parsed.overlays)
+    ? parsed.overlays
+    : (Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ?? [];
+
+  const overlays: TextOverlay[] = [];
+  let headlineDone = false;
+  let subheadDone = false;
+  for (const item of arr) {
+    const fallback: "headline" | "subhead" = headlineDone ? "subhead" : "headline";
+    const overlay = normalizeOverlay(item, fallback);
+    if (!overlay) continue;
+    if (overlay.id === "headline") headlineDone = true;
+    if (overlay.id === "subhead") subheadDone = true;
+    overlays.push(overlay);
+    if (overlays.length >= 2) break;
+  }
+  return overlays;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+
 type ComposeAdImageInput = {
   personImagePath: string;
   productImagePath?: string;

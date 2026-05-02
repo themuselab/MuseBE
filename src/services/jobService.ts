@@ -23,6 +23,7 @@ const serializeJob = (job: Job) => ({
   progress: job.progress,
   resultUrl: job.resultUrl,
   intermediateUrls: job.intermediateUrls,
+  textOverlays: job.textOverlays,
   errorMessage: job.errorMessage,
   costCents: job.costCents,
   catalogModelId: job.catalogModelId,
