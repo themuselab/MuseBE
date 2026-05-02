@@ -1,0 +1,37 @@
+name: Deploy BE to VM
+
+on:
+  push:
+    branches: [main, feat/ai-ad-generation]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-be-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and redeploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          # ref_name을 워크플로 단계에서 보간(예: "feat/ai-ad-generation"). ssh-action은 env를 원격에 전달 안 함.
+          script: |
+            set -e
+            cd ~/muse-be
+            BRANCH="${{ github.ref_name }}"
+            echo "[deploy] target branch: $BRANCH"
+            git fetch --all --prune
+            git reset --hard "origin/$BRANCH"
+            git checkout -f "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            docker compose build be
+            docker compose up -d be
+            docker compose exec -T be npx prisma migrate deploy
+            docker image prune -f
+            sleep 3
+            curl -fsS http://127.0.0.1:4000/health
