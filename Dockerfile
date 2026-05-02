@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
+COPY tsconfig.json prisma.config.ts ./
 COPY prisma ./prisma
 COPY src ./src
 
@@ -19,12 +19,11 @@ ENV NODE_ENV=production
 
 RUN apk add --no-cache tini
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
+# build stage의 node_modules 통째 사용 — prisma CLI/dotenv/prisma.config 의존 다 포함
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/prisma.config.ts ./
 COPY prisma ./prisma
 # swagger.ts loads yaml via __dirname = dist/docs at runtime
 COPY src/docs/*.yaml ./dist/docs/
