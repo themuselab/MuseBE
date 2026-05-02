@@ -3,31 +3,59 @@ services:
     image: postgres:16
     container_name: muse-db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: muse
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-muse}
     volumes:
       - muse-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: muse-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - muse-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   pil-service:
     build:
       context: ./pil-service
     container_name: muse-pil
     restart: unless-stopped
+
+  be:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: muse-be
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-muse}?schema=public
+      REDIS_URL: redis://redis:6379
+      PIL_SERVICE_URL: http://pil-service:8001
     ports:
-      - "8001:8001"
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pil-service:
+        condition: service_started
 
 volumes:
   muse-db-data:
