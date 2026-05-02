@@ -19,19 +19,19 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          # ref_name을 워크플로 단계에서 보간(예: "feat/ai-ad-generation"). ssh-action은 env를 원격에 전달 안 함.
           script: |
             set -e
             cd ~/muse-be
+            BRANCH="${{ github.ref_name }}"
+            echo "[deploy] target branch: $BRANCH"
             git fetch --all --prune
-            # 로컬 작업본 충돌 무시하고 강제 동기화
-            git reset --hard "origin/${GITHUB_REF_NAME:-main}"
-            git checkout -f "${GITHUB_REF_NAME:-main}"
-            git reset --hard "origin/${GITHUB_REF_NAME:-main}"
+            git reset --hard "origin/$BRANCH"
+            git checkout -f "$BRANCH"
+            git reset --hard "origin/$BRANCH"
             docker compose build be
             docker compose up -d be
             docker compose exec -T be npx prisma migrate deploy
             docker image prune -f
             sleep 3
             curl -fsS http://127.0.0.1:4000/health
-        env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
