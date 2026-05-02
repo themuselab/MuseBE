@@ -23,8 +23,10 @@ jobs:
             set -e
             cd ~/muse-be
             git fetch --all --prune
-            git checkout ${GITHUB_REF_NAME:-main}
-            git reset --hard origin/${GITHUB_REF_NAME:-main}
+            # 로컬 작업본 충돌 무시하고 강제 동기화
+            git reset --hard "origin/${GITHUB_REF_NAME:-main}"
+            git checkout -f "${GITHUB_REF_NAME:-main}"
+            git reset --hard "origin/${GITHUB_REF_NAME:-main}"
             docker compose build be
             docker compose up -d be
             docker compose exec -T be npx prisma migrate deploy
