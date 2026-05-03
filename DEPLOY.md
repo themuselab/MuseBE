@@ -4,14 +4,14 @@
 
 ## 핵심 정보
 
-| 항목 | 값 |
-|---|---|
-| BE 엔드포인트 | https://api.themuselab.kr |
-| Health | https://api.themuselab.kr/health |
-| Swagger | https://api.themuselab.kr/api-docs |
-| VM 외부 IP | 34.64.33.212 |
-| GCP 프로젝트 | muse-be-2026 |
-| 인증서 만료 | 2026-07-31 (cron 자동 갱신) |
+| 항목          | 값                                 |
+| ------------- | ---------------------------------- |
+| BE 엔드포인트 | https://api.themuselab.kr          |
+| Health        | https://api.themuselab.kr/health   |
+| Swagger       | https://api.themuselab.kr/api-docs |
+| VM 외부 IP    | 34.64.33.212                       |
+| GCP 프로젝트  | muse-be-2026                       |
+| 인증서 만료   | 2026-07-31 (cron 자동 갱신)        |
 
 ## SSH 접속
 
@@ -24,11 +24,14 @@ VM 내 작업 디렉토리: `~/muse-be`
 ## 자동 배포
 
 ### 트리거
+
 - `main` 또는 `feat/ai-ad-generation` 브랜치에 push
 - Actions 탭에서 수동 트리거 (workflow_dispatch)
 
 ### 흐름
+
 GHA Ubuntu runner → SSH → VM에서:
+
 ```bash
 git fetch && git reset --hard origin/$BRANCH
 git checkout -f $BRANCH && git reset --hard origin/$BRANCH
@@ -40,6 +43,7 @@ curl -fsS http://127.0.0.1:4000/health
 ```
 
 ### 실패 시 디버깅
+
 1. GitHub → Actions 탭 → 실패한 run → "SSH and redeploy" 단계 로그 확인
 2. VM에서 직접:
    ```bash
@@ -62,6 +66,7 @@ git pull
 ## 롤백
 
 특정 커밋으로 되돌리기:
+
 ```bash
 gcloud compute ssh muse-be --zone=asia-northeast3-a
 cd ~/muse-be
@@ -86,11 +91,13 @@ cd ~/muse-be && docker compose up -d be
 ## DB 작업
 
 ### 마이그레이션 적용 (수동)
+
 ```bash
 docker compose exec be npx prisma migrate deploy
 ```
 
 ### Prisma Studio (포트 포워딩)
+
 ```bash
 # 로컬 PC에서:
 gcloud compute ssh muse-be --zone=asia-northeast3-a -- -L 5555:localhost:5555
@@ -100,11 +107,13 @@ docker compose exec be npx prisma studio
 ```
 
 ### DB 직접 접속
+
 ```bash
 docker compose exec db psql -U postgres -d muse
 ```
 
 ### 시드 (카탈로그 mock)
+
 ```bash
 docker compose exec be npx tsx prisma/seed.ts
 ```
@@ -124,13 +133,14 @@ docker compose exec be npx tsx prisma/seed.ts
 
 ## GitHub Actions Secrets
 
-| Name | 값 |
-|---|---|
-| `VM_HOST` | 34.64.33.212 |
-| `VM_USER` | (VM의 ssh 유저명) |
+| Name         | 값                                              |
+| ------------ | ----------------------------------------------- |
+| `VM_HOST`    | 34.64.33.212                                    |
+| `VM_USER`    | (VM의 ssh 유저명)                               |
 | `VM_SSH_KEY` | deploy 전용 ed25519 비밀키 (VM `~/.ssh/deploy`) |
 
 키 회전 시:
+
 ```bash
 # VM에서
 ssh-keygen -t ed25519 -f ~/.ssh/deploy -N ''
@@ -141,11 +151,13 @@ cat ~/.ssh/deploy   # 출력값을 GitHub Secrets VM_SSH_KEY에 갱신
 ## 백업
 
 ### DB 덤프
+
 ```bash
 docker compose exec -T db pg_dump -U postgres muse > muse-$(date +%Y%m%d).sql
 ```
 
 ### 디스크 스냅샷 (GCP)
+
 ```bash
 gcloud compute disks snapshot muse-be --zone=asia-northeast3-a --snapshot-names=muse-be-$(date +%Y%m%d)
 ```
@@ -159,14 +171,14 @@ gcloud compute disks snapshot muse-be --zone=asia-northeast3-a --snapshot-names=
 
 ## 흔한 트러블슈팅
 
-| 증상 | 원인/해결 |
-|---|---|
-| 502 Bad Gateway | BE 컨테이너 다운. `docker compose logs be`로 원인 확인 후 `docker compose up -d be` |
-| Mixed Content 차단 | FE가 `http://`로 호출. Vercel `NEXT_PUBLIC_API_URL`이 `https://`로 시작하는지 확인 |
-| CORS 에러 | `.env`의 `FRONTEND_URL`이 정확한 Vercel 도메인인지 확인 후 BE 재시작 |
-| 워크플로 git checkout 충돌 | VM 작업본이 dirty. 워크플로의 `git reset --hard`가 자동 정리하지만, 수동 정리 시 `cd ~/muse-be && git fetch && git reset --hard origin/$BRANCH` |
-| 인증서 갱신 실패 | `sudo certbot renew --dry-run`으로 원인 파악. 보통 nginx :80 차단 또는 DNS 변경 |
-| `prisma migrate deploy` 실패 | DB 컨테이너 down 또는 마이그레이션 충돌. `docker compose ps db` 확인 |
+| 증상                         | 원인/해결                                                                                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 502 Bad Gateway              | BE 컨테이너 다운. `docker compose logs be`로 원인 확인 후 `docker compose up -d be`                                                             |
+| Mixed Content 차단           | FE가 `http://`로 호출. Vercel `NEXT_PUBLIC_API_URL`이 `https://`로 시작하는지 확인                                                              |
+| CORS 에러                    | `.env`의 `FRONTEND_URL`이 정확한 Vercel 도메인인지 확인 후 BE 재시작                                                                            |
+| 워크플로 git checkout 충돌   | VM 작업본이 dirty. 워크플로의 `git reset --hard`가 자동 정리하지만, 수동 정리 시 `cd ~/muse-be && git fetch && git reset --hard origin/$BRANCH` |
+| 인증서 갱신 실패             | `sudo certbot renew --dry-run`으로 원인 파악. 보통 nginx :80 차단 또는 DNS 변경                                                                 |
+| `prisma migrate deploy` 실패 | DB 컨테이너 down 또는 마이그레이션 충돌. `docker compose ps db` 확인                                                                            |
 
 ## 변경 시 사전 승인 필요
 
@@ -177,3 +189,8 @@ gcloud compute disks snapshot muse-be --zone=asia-northeast3-a --snapshot-names=
 - DB 스키마 큰 변경 (downtime 동반)
 - nginx config 큰 변경
 - `.env` 신규 키 추가로 인한 코드 변경
+
+### 로컬 ssh 키 위치
+
+C:\Users\USER\.ssh\google_compute_engine (private)
+C:\Users\USER\.ssh\google_compute_engine.pub (public)
