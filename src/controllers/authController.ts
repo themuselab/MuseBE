@@ -6,10 +6,12 @@ import { createSuccessResponse } from "../types/api";
 import { authErrors } from "../errors/authErrors";
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+const isProd = process.env.NODE_ENV === "production";
+// FE/BE 동일 site(themuselab.kr 계열) 기준. lax는 same-site에서는 모든 메서드 허용 + cross-site GET 허용 (OAuth 콜백 호환).
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
+  secure: isProd,
+  sameSite: "lax" as const,
   path: "/auth",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -151,7 +153,8 @@ export const handleLogout = async (req: Request, res: Response, next: NextFuncti
     if (token) {
       await authService.logout(token);
     }
-    res.clearCookie("refreshToken", { path: "/auth" });
+    // set 시점과 동일한 (sameSite, secure, path) 조합이어야 브라우저가 쿠키 삭제
+    res.clearCookie("refreshToken", { path: "/auth", sameSite: "lax", secure: isProd });
     res.json(createSuccessResponse(null));
   } catch (err) {
     next(err);
