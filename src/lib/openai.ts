@@ -275,7 +275,7 @@ export async function composeAdImage(
   const images = productFile ? [personFile, productFile] : [personFile];
 
   const result = await client.images.edit({
-    model: "gpt-image-1",
+    model: "gpt-image-2",
     image: images,
     prompt: input.prompt,
     size: input.size ?? "1024x1024",

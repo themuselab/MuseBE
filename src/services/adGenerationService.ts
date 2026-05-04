@@ -16,7 +16,7 @@ import type { AdGenerationJobData } from "../lib/queue";
 import type { Job as BullJob } from "bullmq";
 
 const COST_FLUX_CENTS = 4;
-const COST_GPT_IMAGE_CENTS = 17;
+const COST_GPT_IMAGE_CENTS = 21;
 const COST_FACE_SWAP_CENTS = 5;
 
 const buildScenePrompt = (params: {
