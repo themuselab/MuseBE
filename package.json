@@ -10,7 +10,8 @@
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "catalog:generate": "tsx scripts/generateMockCatalog.ts"
+    "catalog:generate": "tsx scripts/generateMockCatalog.ts",
+    "avatars:import": "tsx scripts/importAvatarsBackup.ts"
   },
   "keywords": [],
   "author": "",
