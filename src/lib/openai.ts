@@ -118,75 +118,61 @@ export type TextOverlay = {
   textAlign: "left" | "center" | "right";
 };
 
+export type AdCopyTone = "warm" | "casual" | "professional" | "elegant";
+
+export type AdCopyResult = {
+  headline: string;
+  subhead: string;
+  cta: string;
+  tone: AdCopyTone;
+};
+
 const COPY_SYSTEM_PROMPT = `너는 한국어 광고 카피라이터다.
-업종/아이템/분위기를 듣고 광고 이미지에 어울리는 헤드라인 1개와 서브카피 1개를 만든다.
+업종/아이템/분위기를 듣고 광고 이미지에 어울리는 헤드라인, 서브카피, CTA를 만든다.
 
-각 텍스트 객체는 다음 필드를 가져야 한다:
-- id: 영어 슬러그 ("headline" 또는 "subhead")
-- content: 한국어 텍스트
-  - headline: 6~14자, 강한 임팩트
-  - subhead: 10~25자, 부연
-- y: 0~100 (캔버스 세로 위치 %, 0=상단, 100=하단)
-- fontSize: 24~64 (px)
-- fontWeight: "bold" 또는 "normal"
-- color: "#ffffff" 또는 "#1a1a1a"
+규칙:
+- 헤드라인: 6~14자 (모바일 한 줄 표시 가능, 강한 임팩트)
+- 서브카피: 10~20자 (헤드라인을 뒷받침하는 부연)
+- CTA: 4~8자 (예: "지금 만나보기", "오늘 오픈", "예약하기")
+- 자영업 톤: 친근, 명확, 공감
+- tone 분류: "warm" | "casual" | "professional" | "elegant" 중 하나
 
-위치 가이드:
-- headline은 보통 상단(y=8) 또는 하단(y=78)
-- subhead는 headline 바로 아래 (y=22 또는 y=88)
+금지 표현 (표시광고법 위반):
+- "최고", "1위", "유일", "100%", "완벽" 등 절대적 표현 금지
+- 거짓 한정 ("오늘만", "단 N명")이 사실 아닌 경우 금지
 
-반드시 다음 JSON 구조로 응답:
-{"overlays":[
-  {"id":"headline","content":"...","y":8,"fontSize":56,"fontWeight":"bold","color":"#ffffff"},
-  {"id":"subhead","content":"...","y":22,"fontSize":24,"fontWeight":"normal","color":"#ffffff"}
-]}`;
+업종별 추가 컴플라이언스:
+- 의료/병원: "치료", "완치", "효과 100%", "신의 손" 금지 (의료법)
+- 식품/카페/빵집: "치료", "예방", "건강에 좋다" 금지 (식품위생법)
+- 화장품: "주름 제거", "기미 제거", "재생" 금지 (화장품법)
+
+반드시 다음 JSON 형식으로만 응답:
+{"headline":"...", "subhead":"...", "cta":"...", "tone":"warm"}`;
 
 const DEFAULT_OVERLAY_LAYOUT = {
   headline: { x: 5, y: 8, width: 90, height: 14, textAlign: "left" as const },
   subhead: { x: 5, y: 22, width: 90, height: 8, textAlign: "left" as const },
+  cta: { x: 60, y: 78, width: 35, height: 8, textAlign: "right" as const },
 };
 
-const normalizeOverlay = (
-  raw: unknown,
-  fallbackId: "headline" | "subhead",
-): TextOverlay | null => {
-  if (typeof raw !== "object" || raw === null) return null;
-  const obj = raw as Record<string, unknown>;
-  const content = typeof obj.content === "string" ? obj.content.trim() : "";
-  if (!content) return null;
+const ALLOWED_TONES: ReadonlySet<AdCopyTone> = new Set([
+  "warm",
+  "casual",
+  "professional",
+  "elegant",
+]);
 
-  const id = typeof obj.id === "string" && obj.id.length > 0 ? obj.id : fallbackId;
-  const layoutKey = id === "headline" || id === "subhead" ? id : fallbackId;
-  const layout = DEFAULT_OVERLAY_LAYOUT[layoutKey];
+const sanitizeText = (raw: unknown, fallback: string): string => {
+  if (typeof raw !== "string") return fallback;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+};
 
-  const y = typeof obj.y === "number" ? Math.max(0, Math.min(95, obj.y)) : layout.y;
-  const fontSize =
-    typeof obj.fontSize === "number"
-      ? Math.max(14, Math.min(96, obj.fontSize))
-      : layoutKey === "headline"
-        ? 48
-        : 22;
-  const fontWeight =
-    obj.fontWeight === "bold"
-      ? ("bold" as const)
-      : layoutKey === "headline"
-        ? ("bold" as const)
-        : ("normal" as const);
-  const colorStr = typeof obj.color === "string" ? obj.color : "#ffffff";
-  const color = /^#[0-9a-fA-F]{6}$/.test(colorStr) ? colorStr : "#ffffff";
-
-  return {
-    id,
-    content,
-    x: layout.x,
-    y,
-    width: layout.width,
-    height: layout.height,
-    fontSize,
-    fontWeight,
-    color,
-    textAlign: layout.textAlign,
-  };
+const sanitizeTone = (raw: unknown): AdCopyTone => {
+  if (typeof raw === "string" && ALLOWED_TONES.has(raw as AdCopyTone)) {
+    return raw as AdCopyTone;
+  }
+  return "warm";
 };
 
 export async function recommendAdCopy(input: {
@@ -194,7 +180,7 @@ export async function recommendAdCopy(input: {
   item: string;
   mood?: string;
   extraDescription?: string;
-}): Promise<TextOverlay[]> {
+}): Promise<AdCopyResult> {
   const client = getClient();
   const userMsg = [
     `업종: ${input.industry}`,
@@ -217,22 +203,78 @@ export async function recommendAdCopy(input: {
 
   const raw = response.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as Record<string, unknown>;
-  const arr = Array.isArray(parsed.overlays)
-    ? parsed.overlays
-    : (Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ?? [];
 
+  return {
+    headline: sanitizeText(parsed.headline, ""),
+    subhead: sanitizeText(parsed.subhead, ""),
+    cta: sanitizeText(parsed.cta, ""),
+    tone: sanitizeTone(parsed.tone),
+  };
+}
+
+const TONE_TO_COLOR: Record<AdCopyTone, string> = {
+  warm: "#1A1A1A",
+  casual: "#1A1A1A",
+  professional: "#FFFFFF",
+  elegant: "#FFFFFF",
+};
+
+/**
+ * AdCopyResult → TextOverlay[] 어댑터.
+ * Job.textOverlays JSON 저장용. cta는 우하단 zone에 독립 배치.
+ */
+export function adCopyToOverlays(copy: AdCopyResult): TextOverlay[] {
+  const color = TONE_TO_COLOR[copy.tone];
   const overlays: TextOverlay[] = [];
-  let headlineDone = false;
-  let subheadDone = false;
-  for (const item of arr) {
-    const fallback: "headline" | "subhead" = headlineDone ? "subhead" : "headline";
-    const overlay = normalizeOverlay(item, fallback);
-    if (!overlay) continue;
-    if (overlay.id === "headline") headlineDone = true;
-    if (overlay.id === "subhead") subheadDone = true;
-    overlays.push(overlay);
-    if (overlays.length >= 2) break;
+
+  if (copy.headline) {
+    const layout = DEFAULT_OVERLAY_LAYOUT.headline;
+    overlays.push({
+      id: "headline",
+      content: copy.headline,
+      x: layout.x,
+      y: layout.y,
+      width: layout.width,
+      height: layout.height,
+      fontSize: 56,
+      fontWeight: "bold",
+      color,
+      textAlign: layout.textAlign,
+    });
   }
+
+  if (copy.subhead) {
+    const layout = DEFAULT_OVERLAY_LAYOUT.subhead;
+    overlays.push({
+      id: "subhead",
+      content: copy.subhead,
+      x: layout.x,
+      y: layout.y,
+      width: layout.width,
+      height: layout.height,
+      fontSize: 24,
+      fontWeight: "normal",
+      color,
+      textAlign: layout.textAlign,
+    });
+  }
+
+  if (copy.cta) {
+    const layout = DEFAULT_OVERLAY_LAYOUT.cta;
+    overlays.push({
+      id: "cta",
+      content: copy.cta,
+      x: layout.x,
+      y: layout.y,
+      width: layout.width,
+      height: layout.height,
+      fontSize: 28,
+      fontWeight: "bold",
+      color,
+      textAlign: layout.textAlign,
+    });
+  }
+
   return overlays;
 }
 
