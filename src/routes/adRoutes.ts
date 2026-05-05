@@ -3,6 +3,7 @@ import {
   handleGenerateAd,
   handleGetJob,
   handleListMyJobs,
+  handleReOverlayText,
   handleUploadProductImage,
 } from "../controllers/jobController";
 import { handleRecommendMoods } from "../controllers/moodController";
@@ -24,5 +25,8 @@ router.post("/generate", authMiddleware, handleGenerateAd);
 
 router.get("/jobs", authMiddleware, handleListMyJobs);
 router.get("/jobs/:id", authMiddleware, handleGetJob);
+
+// 텍스트 재편집 — GPT 재호출 없이 PIL만 다시 호출 (흰디 패턴)
+router.post("/jobs/:id/re-overlay", authMiddleware, handleReOverlayText);
 
 export { router as adRouter };

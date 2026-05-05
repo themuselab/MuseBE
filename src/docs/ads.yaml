@@ -107,6 +107,13 @@ paths:
                 item: { type: string }
                 extraDescription: { type: string }
                 mood: { type: string }
+                preferredLabel:
+                  type: string
+                  description: 카탈로그 모델 자동 추천에 사용 (신뢰감/세련됨/친근함/편안함/전문성/활기참)
+                aspectRatio:
+                  type: string
+                  enum: ["9:16", "1:1", "16:9"]
+                  description: 광고 이미지 비율 (default 9:16)
       responses:
         "202":
           description: 작업 큐잉 완료
@@ -186,10 +193,64 @@ paths:
                       status: { type: string }
                       progress: { type: integer }
                       resultUrl: { type: string, nullable: true }
+                      baseImageUrl:
+                        type: string
+                        nullable: true
+                        description: 텍스트 없는 베이스 이미지 (재편집 endpoint용)
+                      cta:
+                        type: string
+                        nullable: true
+                        description: AI 추천 CTA 텍스트
                       errorMessage: { type: string, nullable: true }
                       intermediateUrls: { type: object, nullable: true }
+                      textOverlays:
+                        type: array
+                        nullable: true
+                        items: { type: object }
                       costCents: { type: integer, nullable: true }
         "403":
           description: 본인 작업이 아님 (AD_JOB_FORBIDDEN)
+        "404":
+          description: 작업 없음
+
+  /ads/jobs/{id}/re-overlay:
+    post:
+      tags: [Ads]
+      summary: 광고 텍스트 재편집 (PIL만 재호출, GPT 비호출)
+      description: |
+        흰디 패턴의 핵심. baseImageUrl을 사용해 PIL overlay만 다시 호출.
+        GPT 미호출이므로 비용 0¢. 사용자가 헤드라인/서브카피/CTA만 바꾸고 싶을 때 사용.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [headline]
+              properties:
+                headline: { type: string, maxLength: 100 }
+                subhead: { type: string, maxLength: 200 }
+                cta: { type: string, maxLength: 50 }
+      responses:
+        "200":
+          description: 재합성 완료, 새 resultUrl 반환
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: object }
+        "400":
+          description: baseImageUrl 없음 또는 입력 검증 실패
+        "403":
+          description: 본인 작업이 아님
         "404":
           description: 작업 없음
