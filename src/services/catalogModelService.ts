@@ -117,3 +117,52 @@ export const listTop = async (limit = 5) => {
     usageCount: row.usageCount,
   }));
 };
+
+// preferredLabel(한국어) → score 키 매핑
+const LABEL_TO_SCORE_KEY: Record<string, keyof Scores> = {
+  신뢰감: "trust",
+  세련됨: "sophisticated",
+  친근함: "friendly",
+  편안함: "comfortable",
+  전문성: "professional",
+  활기참: "lively",
+};
+
+/**
+ * 업종 + 인상 라벨로 카탈로그 모델 자동 추천.
+ *
+ * 1순위: recommendedIndustries 배열에 industry 포함된 모델 중
+ *   - preferredLabel 있으면: 해당 score 가장 높은 모델
+ *   - 없으면: rank 가장 높은(낮은 숫자) 모델
+ * 2순위: industry 매칭 모델이 없으면 전체 active 중 rank 1위.
+ */
+export const recommendByIndustry = async (
+  industry: string,
+  preferredLabel?: string,
+): Promise<CatalogModelDto | null> => {
+  const all = await catalogModelRepository.listActive({});
+  if (all.length === 0) return null;
+
+  const matched = all.filter((m) => {
+    const inds = toStringArray(m.recommendedIndustries);
+    return inds.some((ind) => ind === industry || ind.includes(industry) || industry.includes(ind));
+  });
+  const pool = matched.length > 0 ? matched : all;
+
+  const scoreKey = preferredLabel ? LABEL_TO_SCORE_KEY[preferredLabel] : undefined;
+
+  const sorted = [...pool].sort((a, b) => {
+    if (scoreKey) {
+      const aScore = toScores(a.scores)[scoreKey];
+      const bScore = toScores(b.scores)[scoreKey];
+      if (bScore !== aScore) return bScore - aScore;
+    }
+    const aRank = a.rank ?? Number.MAX_SAFE_INTEGER;
+    const bRank = b.rank ?? Number.MAX_SAFE_INTEGER;
+    if (aRank !== bRank) return aRank - bRank;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
+  const picked = sorted[0];
+  return picked ? serialize(picked) : null;
+};
