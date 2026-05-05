@@ -1,15 +1,18 @@
 import path from "node:path";
 import * as jobRepository from "../repositories/jobRepository";
 import * as catalogModelRepository from "../repositories/catalogModelRepository";
-import { generateScene, faceSwapWithUpload } from "../lib/fal";
+import { generateScene, faceSwapWithUpload, uploadToFalStorage } from "../lib/fal";
 import fs from "node:fs/promises";
-import { composeAdImage, recommendAdCopy } from "../lib/openai";
-import type { TextOverlay } from "../lib/openai";
+import { composeAdImage, recommendAdCopy, adCopyToOverlays } from "../lib/openai";
+import type { AdCopyResult } from "../lib/openai";
 import { overlayKoreanText } from "../lib/pilClient";
+import { buildAdImagePrompt } from "../lib/promptBuilder";
+import { TEXT_FREE_RULES } from "../lib/promptTemplates";
 import {
   saveBuffer,
   downloadToFile,
   getAbsolutePath,
+  getPublicUrl,
 } from "../lib/localStorage";
 import { startAdGenerationWorker } from "../lib/queue";
 import type { AdGenerationJobData } from "../lib/queue";
@@ -19,23 +22,24 @@ const COST_FLUX_CENTS = 4;
 const COST_GPT_IMAGE_CENTS = 21;
 const COST_FACE_SWAP_CENTS = 5;
 
+// PIL 서비스가 cta 인자를 지원하는지 (옵션 A 정식 마이그 시 true).
+// 현재 PIL은 headline/subhead만 받으므로 BE에서 subhead+cta `\n` 합쳐 보내는 fallback (옵션 B).
+const PIL_HAS_CTA = process.env.PIL_HAS_CTA === "true";
+
 const buildScenePrompt = (params: {
   industry?: string | null;
   item?: string | null;
   extraDescription?: string | null;
   mood?: string | null;
   prompt: string;
+  modelGender?: "F" | "M";
 }): string => {
-  const parts: string[] = [
-    "professional Korean person, editorial fashion photography, studio lighting, sharp details",
-  ];
-  if (params.mood) parts.push(params.mood);
-  if (params.industry) parts.push(`industry: ${params.industry}`);
-  if (params.item) parts.push(`product context: ${params.item}`);
-  if (params.extraDescription) parts.push(params.extraDescription);
-  parts.push(params.prompt);
-  parts.push("clean composition with empty space for text overlay");
-  return parts.join(", ");
+  // 학술 zone 룰 + 업종별 디자인 코드 자동 적용. industry 없으면 "기타" fallback.
+  return buildAdImagePrompt({
+    industry: params.industry ?? "기타",
+    product: params.item ?? params.prompt,
+    modelGender: params.modelGender,
+  });
 };
 
 const buildComposePrompt = (params: {
@@ -50,12 +54,21 @@ const buildComposePrompt = (params: {
     );
   }
   lines.push(
-    "**매우 중요**: 이미지에 어떤 텍스트도 그리지 말 것. 한글, 영문, 숫자, 로고, 워터마크, 문자 형태 모두 절대 금지. 텍스트 영역은 완전히 비워둘 것 (텍스트는 후처리로 별도 추가됨).",
-  );
-  lines.push(
     "원본 인물의 얼굴/체형/의상 톤은 유지. 사진에는 사람과 제품, 배경만 있도록.",
   );
+  lines.push("");
+  lines.push(TEXT_FREE_RULES);
   return lines.join("\n");
+};
+
+const composePilSubhead = (
+  subhead: string | null | undefined,
+  cta: string | null | undefined,
+): string | undefined => {
+  if (PIL_HAS_CTA) return subhead ?? undefined;
+  // PIL이 cta 미지원 → subhead와 cta를 줄바꿈으로 합쳐 보냄 (zone 분리는 안 됨)
+  const parts = [subhead, cta].filter((s): s is string => Boolean(s && s.length > 0));
+  return parts.length > 0 ? parts.join("\n") : undefined;
 };
 
 const isContentPolicyError = (err: unknown): boolean => {
@@ -107,6 +120,7 @@ const processAdGenerationJob = async (
       extraDescription: job.extraDescription,
       mood: job.mood,
       prompt: job.prompt,
+      modelGender: catalog.gender === "male" ? "M" : "F",
     });
     const scene = await generateScene({
       prompt: scenePrompt,
@@ -199,49 +213,27 @@ const processAdGenerationJob = async (
       // face-swap 실패해도 composed 결과는 있으므로 폴백으로 진행
     }
 
-    // 4. PIL overlay (한글 카피)
-    await jobRepository.updateJob(jobId, {
-      progress: 85,
-      intermediateUrls: intermediate,
-    });
+    // 3.5. 텍스트 없는 베이스 이미지 별도 보존 (re-overlay endpoint용)
+    // 마지막 단계 이미지(swapped > composed > scene)를 base.png로 로컬 저장 + fal.storage 업로드.
+    // PIL은 외부 URL fetch만 가능하므로 fal.storage URL을 DB에 저장.
+    const baseSourceRel = (
+      intermediate.swapped ??
+      intermediate.composed ??
+      intermediate.scene
+    ).replace(/^\/uploads\//, "");
+    const baseRel = path.join("intermediate", job.userId, job.id, "base.png");
+    const baseBuffer = await fs.readFile(getAbsolutePath(baseSourceRel));
+    await saveBuffer(baseRel, baseBuffer);
+    const baseImageUrl = await uploadToFalStorage(
+      baseBuffer,
+      `base-${job.id}.png`,
+    );
 
-    let finalBuffer: Buffer;
-    if (
-      job.headline &&
-      swappedUrl &&
-      process.env.PUBLIC_BASE_URL
-    ) {
-      try {
-        const overlayResult = await overlayKoreanText({
-          baseUrl: swappedUrl,
-          headline: job.headline,
-          subhead: job.subhead ?? undefined,
-          logo: "MUSE",
-          template: "instagram_square",
-        });
-        finalBuffer = overlayResult.buffer;
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        throw new Error(`PIL overlay failed: ${detail}`);
-      }
-    } else {
-      // 폴백: 카피 없이 마지막 단계 이미지 그대로 사용
-      const fallbackRel = (intermediate.swapped ?? intermediate.composed ?? intermediate.scene).replace(
-        /^\/uploads\//,
-        "",
-      );
-      finalBuffer = require("node:fs").readFileSync(
-        getAbsolutePath(fallbackRel),
-      );
-    }
-
-    const resultRel = path.join("ads", job.userId, `${job.id}.png`);
-    const resultUrl = await saveBuffer(resultRel, finalBuffer);
-
-    // 광고 카피 메타데이터 생성 (편집 가능 텍스트 레이어용)
-    let textOverlays: TextOverlay[] = [];
+    // 4. 광고 카피 메타데이터 생성 (편집 가능 텍스트 레이어용)
+    // PIL overlay 직전에 카피 생성 — 카피의 cta까지 같이 보낼 수 있도록.
+    let adCopy: AdCopyResult = { headline: "", subhead: "", cta: "", tone: "warm" };
     try {
-      textOverlays = await recommendAdCopy({
+      adCopy = await recommendAdCopy({
         industry: job.industry ?? "",
         item: job.item ?? "",
         mood: job.mood ?? undefined,
@@ -252,13 +244,58 @@ const processAdGenerationJob = async (
         `[ad-worker] recommendAdCopy failed for job ${jobId}:`,
         err instanceof Error ? err.message : err,
       );
-      // 카피 생성 실패해도 이미지는 완성된 상태이므로 빈 배열로 진행
     }
+
+    // 사용자 입력 우선, 없으면 AI 추천 카피 사용
+    const finalHeadline = job.headline ?? (adCopy.headline || null);
+    const finalSubhead = job.subhead ?? (adCopy.subhead || null);
+    const finalCta = adCopy.cta || null;
+
+    // 4. PIL overlay (한글 카피)
+    await jobRepository.updateJob(jobId, {
+      progress: 85,
+      intermediateUrls: intermediate,
+    });
+
+    // PIL은 외부 URL fetch만 가능. swappedUrl(fal.media) 우선, 없으면 baseImageUrl(fal.storage) fallback.
+    const pilBaseUrl = swappedUrl ?? baseImageUrl;
+    let finalBuffer: Buffer;
+    if (finalHeadline && pilBaseUrl) {
+      try {
+        const overlayResult = await overlayKoreanText({
+          baseUrl: pilBaseUrl,
+          headline: finalHeadline,
+          subhead: composePilSubhead(finalSubhead, finalCta),
+          logo: "MUSE",
+          template: "instagram_square",
+        });
+        finalBuffer = overlayResult.buffer;
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new Error(`PIL overlay failed: ${detail}`);
+      }
+    } else {
+      // 폴백: 카피 없이 베이스 이미지 그대로 사용
+      finalBuffer = baseBuffer;
+    }
+
+    const resultRel = path.join("ads", job.userId, `${job.id}.png`);
+    const resultUrl = await saveBuffer(resultRel, finalBuffer);
+
+    const textOverlays = adCopyToOverlays({
+      headline: finalHeadline ?? "",
+      subhead: finalSubhead ?? "",
+      cta: finalCta ?? "",
+      tone: adCopy.tone,
+    });
 
     await jobRepository.updateJob(jobId, {
       status: "completed",
       progress: 100,
       resultUrl,
+      originalResultUrl: resultUrl, // 첫 결과를 별도 컬럼에 보존 — 재편집 시에도 좌측 카드는 이 URL 사용
+      baseImageUrl,
+      cta: finalCta,
       intermediateUrls: intermediate,
       textOverlays: textOverlays as unknown as import("@prisma/client").Prisma.InputJsonValue,
       costCents: totalCostCents,

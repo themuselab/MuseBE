@@ -8,6 +8,7 @@ type CreateJobData = {
   prompt: string;
   headline?: string | null;
   subhead?: string | null;
+  cta?: string | null;
   industry?: string | null;
   item?: string | null;
   extraDescription?: string | null;
@@ -24,6 +25,7 @@ export const createJob = (data: CreateJobData) =>
       prompt: data.prompt,
       headline: data.headline ?? null,
       subhead: data.subhead ?? null,
+      cta: data.cta ?? null,
       industry: data.industry ?? null,
       item: data.item ?? null,
       extraDescription: data.extraDescription ?? null,
@@ -63,8 +65,13 @@ type UpdateProgressData = {
   progress?: number;
   errorMessage?: string | null;
   resultUrl?: string | null;
+  originalResultUrl?: string | null;
+  baseImageUrl?: string | null;
   intermediateUrls?: Prisma.InputJsonValue;
   textOverlays?: Prisma.InputJsonValue;
+  headline?: string | null;
+  subhead?: string | null;
+  cta?: string | null;
   costCents?: number;
   seed?: bigint | null;
   falRequestId?: string | null;
