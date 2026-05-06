@@ -1,12 +1,48 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import * as jobRepository from "../repositories/jobRepository";
 import * as catalogModelRepository from "../repositories/catalogModelRepository";
 import { adErrors } from "../errors/adErrors";
 import { getAdGenerationQueue } from "../lib/queue";
 import { overlayKoreanText } from "../lib/pilClient";
-import { saveBuffer } from "../lib/localStorage";
+import { saveBuffer, getAbsolutePath } from "../lib/localStorage";
 import { adCopyToOverlays } from "../lib/openai";
 import type { Job, Prisma } from "@prisma/client";
+
+type JobWithCatalog = Job & {
+  catalogModel: { id: string; name: string } | null;
+};
+
+const serializeJobListItem = (job: JobWithCatalog) => ({
+  id: job.id,
+  status: job.status,
+  modelName: job.catalogModel?.name ?? null,
+  catalogModelId: job.catalogModelId,
+  item: job.item,
+  resultUrl: job.resultUrl,
+  baseImageUrl: job.baseImageUrl,
+  createdAt: job.createdAt,
+});
+
+const UPLOADS_PUBLIC_PREFIX = "/uploads/";
+
+const publicUrlToRelative = (url: string | null): string | null => {
+  if (!url) return null;
+  if (!url.startsWith(UPLOADS_PUBLIC_PREFIX)) return null;
+  return url.slice(UPLOADS_PUBLIC_PREFIX.length);
+};
+
+const tryUnlinkPublicUrl = async (url: string | null): Promise<void> => {
+  const rel = publicUrlToRelative(url);
+  if (!rel) return;
+  try {
+    const abs = getAbsolutePath(rel);
+    await fs.unlink(abs);
+  } catch (err) {
+    // 파일이 이미 없거나 권한 문제 — 삭제 자체는 막지 않음
+    console.warn("[jobService] unlink failed", { url, err });
+  }
+};
 
 const PIL_HAS_CTA = process.env.PIL_HAS_CTA === "true";
 
@@ -180,7 +216,64 @@ export const listMyJobs = async (input: ListMyJobsInput) => {
   const nextCursor = hasMore ? trimmed[trimmed.length - 1]?.id ?? null : null;
 
   return {
-    items: trimmed.map(serializeJob),
+    items: trimmed.map(serializeJobListItem),
     nextCursor,
   };
+};
+
+type DeleteJobInput = { jobId: string; userId: string };
+
+export const deleteJob = async ({ jobId, userId }: DeleteJobInput) => {
+  const job = await jobRepository.findByIdAndUser(jobId, userId);
+  if (!job) throw adErrors.jobNotFound();
+
+  if (job.status === "queued" || job.status === "processing") {
+    throw adErrors.jobBusy();
+  }
+
+  await tryUnlinkPublicUrl(job.resultUrl);
+  await tryUnlinkPublicUrl(job.originalResultUrl);
+  await tryUnlinkPublicUrl(job.baseImageUrl);
+  await tryUnlinkPublicUrl(job.productImagePath);
+
+  if (Array.isArray(job.intermediateUrls)) {
+    for (const entry of job.intermediateUrls as Prisma.JsonArray) {
+      if (typeof entry === "string") {
+        await tryUnlinkPublicUrl(entry);
+      } else if (entry && typeof entry === "object" && "url" in entry) {
+        const url = (entry as { url?: unknown }).url;
+        if (typeof url === "string") await tryUnlinkPublicUrl(url);
+      }
+    }
+  }
+
+  await jobRepository.deleteById(job.id);
+  return { id: job.id };
+};
+
+type DownloadJobInput = { jobId: string; userId: string };
+
+const sanitizeFilenameSegment = (s: string): string =>
+  s.replace(/[\\/]/g, "").trim();
+
+export const getDownloadInfo = async ({ jobId, userId }: DownloadJobInput) => {
+  const job = await jobRepository.findByIdAndUser(jobId, userId);
+  if (!job) throw adErrors.jobNotFound();
+
+  if (job.status !== "completed" || !job.resultUrl) {
+    throw adErrors.jobNotDownloadable();
+  }
+
+  const rel = publicUrlToRelative(job.resultUrl);
+  if (!rel) throw adErrors.jobNotDownloadable();
+
+  const absolutePath = getAbsolutePath(rel);
+  const ext = path.extname(rel) || ".png";
+  const dateStr = job.createdAt.toISOString().slice(0, 10);
+  const modelSegment = job.catalogModel?.name
+    ? `-${sanitizeFilenameSegment(job.catalogModel.name)}`
+    : "";
+  const filename = `muse${modelSegment}-${dateStr}${ext}`;
+
+  return { absolutePath, filename };
 };
