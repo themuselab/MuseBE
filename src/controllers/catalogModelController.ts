@@ -23,8 +23,10 @@ export const handleListCatalogModels = async (
 ) => {
   try {
     const dto = parseQuery(listCatalogModelsQuerySchema, req.query);
-    const items = await catalogModelService.listCatalog(dto);
-    const total = await catalogModelService.getTotalCount();
+    const [items, total] = await Promise.all([
+      catalogModelService.listCatalog(dto),
+      catalogModelService.getFilteredCount(dto),
+    ]);
     res.json(createSuccessResponse({ items, total }));
   } catch (err) {
     next(err);

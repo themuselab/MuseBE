@@ -19,11 +19,14 @@ export const IMPRESSION_FILTER_VALUES = [
   "lively",
 ] as const;
 
+export const SORT_VALUES = ["recommend", "popular"] as const;
+
 export const listCatalogModelsQuerySchema = z.object({
   gender: z.enum(GENDER_FILTER_VALUES).optional(),
   age: z.enum(AGE_FILTER_VALUES).optional(),
   primaryLabel: z.enum(IMPRESSION_FILTER_VALUES).optional(),
   keyword: z.string().trim().min(1).max(50).optional(),
+  sort: z.enum(SORT_VALUES).optional(),
 });
 
 export type ListCatalogModelsQuery = z.infer<typeof listCatalogModelsQuerySchema>;
