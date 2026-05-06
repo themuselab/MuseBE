@@ -37,4 +37,16 @@ export const adErrors = {
       `한글 카피 합성에 실패했습니다${detail ? `: ${detail}` : ""}`,
       502,
     ),
+  jobBusy: () =>
+    createAppError(
+      "AD_JOB_BUSY",
+      "진행 중인 작업은 삭제할 수 없습니다. 완료 후 다시 시도해 주세요",
+      409,
+    ),
+  jobNotDownloadable: () =>
+    createAppError(
+      "AD_JOB_NOT_DOWNLOADABLE",
+      "완료되지 않은 작업은 다운로드할 수 없습니다",
+      400,
+    ),
 };

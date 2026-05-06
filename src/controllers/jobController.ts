@@ -117,6 +117,52 @@ export const handleListMyJobs = async (
   }
 };
 
+export const handleDeleteJob = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) throw userErrors.unauthorized();
+    const id = req.params.id;
+    if (!id || Array.isArray(id)) throw adErrors.jobNotFound();
+    const result = await jobService.deleteJob({ jobId: id, userId });
+    res.json(createSuccessResponse(result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const handleDownloadJob = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) throw userErrors.unauthorized();
+    const id = req.params.id;
+    if (!id || Array.isArray(id)) throw adErrors.jobNotFound();
+
+    const { absolutePath, filename } = await jobService.getDownloadInfo({
+      jobId: id,
+      userId,
+    });
+
+    const encoded = encodeURIComponent(filename);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encoded}`,
+    );
+    res.sendFile(absolutePath, (err) => {
+      if (err && !res.headersSent) next(err);
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const handleReOverlayText = async (
   req: Request,
   res: Response,

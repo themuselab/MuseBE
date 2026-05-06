@@ -139,6 +139,8 @@ paths:
     get:
       tags: [Ads]
       summary: 내 광고 생성 히스토리 목록
+      description: |
+        본인이 생성한 잡 목록. status 미지정 시 failed 잡은 기본 제외.
       security:
         - bearerAuth: []
       parameters:
@@ -163,7 +165,19 @@ paths:
                   data:
                     type: object
                     properties:
-                      items: { type: array, items: { type: object } }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            status: { type: string, enum: [queued, processing, completed] }
+                            modelName: { type: string, nullable: true, description: "catalogModel.name" }
+                            catalogModelId: { type: string, nullable: true }
+                            item: { type: string, nullable: true, description: "사용자가 입력한 아이템(상품)명" }
+                            resultUrl: { type: string, nullable: true }
+                            baseImageUrl: { type: string, nullable: true, description: "진행 중일 때 표시할 모델 베이스 이미지" }
+                            createdAt: { type: string, format: date-time }
                       nextCursor: { type: string, nullable: true }
 
   /ads/jobs/{id}:
@@ -212,6 +226,62 @@ paths:
           description: 본인 작업이 아님 (AD_JOB_FORBIDDEN)
         "404":
           description: 작업 없음
+    delete:
+      tags: [Ads]
+      summary: 광고 작업 삭제 (히스토리에서 제거)
+      description: |
+        DB row + 관련 이미지 파일(resultUrl, originalResultUrl, baseImageUrl,
+        intermediateUrls, productImagePath) 함께 하드 삭제. 진행 중(queued/processing)
+        잡은 거부.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 삭제 완료
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+        "404":
+          description: 잡 없음 또는 본인 잡 아님 (AD_JOB_NOT_FOUND)
+        "409":
+          description: 진행 중 (AD_JOB_BUSY)
+
+  /ads/jobs/{id}/download:
+    get:
+      tags: [Ads]
+      summary: 완료된 광고 이미지 다운로드
+      description: |
+        Content-Disposition: attachment 로 응답. 파일명은
+        muse-{모델명}-{YYYY-MM-DD}.{ext}. status != completed 잡은 거부.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 이미지 바이너리
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "400":
+          description: 완료되지 않은 잡 (AD_JOB_NOT_DOWNLOADABLE)
+        "404":
+          description: 잡 없음 또는 본인 잡 아님
 
   /ads/jobs/{id}/re-overlay:
     post:
