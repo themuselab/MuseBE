@@ -20,9 +20,14 @@ paths:
         - in: query
           name: keyword
           schema: { type: string }
+        - in: query
+          name: sort
+          description: |
+            정렬 기준. recommend(기본) = 등록 최신순, popular = 잡 사용 수 내림차순(동률 시 최신순).
+          schema: { type: string, enum: [recommend, popular] }
       responses:
         "200":
-          description: 모델 목록
+          description: 모델 목록 (total은 동일 필터 적용된 카운트)
           content:
             application/json:
               schema:

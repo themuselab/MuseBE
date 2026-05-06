@@ -10,6 +10,7 @@ type ListInput = {
   age?: string;
   primaryLabel?: string;
   keyword?: string;
+  sort?: "recommend" | "popular";
 };
 
 type Scores = {
@@ -108,6 +109,9 @@ export const listCatalog = async (input: ListInput) => {
 };
 
 export const getTotalCount = () => catalogModelRepository.countActive();
+
+export const getFilteredCount = (input: ListInput) =>
+  catalogModelRepository.countWithFilter(input);
 
 export const listTop = async (limit = 5) => {
   const items = await catalogModelRepository.listTopByUsage(limit);
