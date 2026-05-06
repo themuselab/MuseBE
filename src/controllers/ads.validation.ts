@@ -23,6 +23,8 @@ export const generateAdSchema = z.object({
   item: z.string().trim().max(100).optional(),
   extraDescription: z.string().trim().max(500).optional(),
   mood: z.string().trim().max(200).optional(),
+  preferredLabel: z.string().trim().max(20).optional(),
+  aspectRatio: z.enum(["9:16", "1:1", "16:9"]).optional(),
 });
 export type GenerateAdRequest = z.infer<typeof generateAdSchema>;
 
@@ -32,3 +34,10 @@ export const listJobsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
+
+export const reOverlaySchema = z.object({
+  headline: z.string().trim().min(1).max(100),
+  subhead: z.string().trim().max(200).optional(),
+  cta: z.string().trim().max(50).optional(),
+});
+export type ReOverlayRequest = z.infer<typeof reOverlaySchema>;

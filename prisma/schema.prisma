@@ -133,6 +133,7 @@ model Job {
   prompt            String
   headline          String?
   subhead           String?
+  cta               String?
   industry          String?
   item              String?
   extraDescription  String?
@@ -142,6 +143,8 @@ model Job {
   progress          Int           @default(0)
   errorMessage      String?
   resultUrl         String?
+  originalResultUrl String?
+  baseImageUrl      String?
   intermediateUrls  Json?
   textOverlays      Json?
   costCents         Int?

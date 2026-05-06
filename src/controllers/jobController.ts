@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import path from "node:path";
 import * as jobService from "../services/jobService";
-import { generateAdSchema, listJobsQuerySchema } from "./ads.validation";
+import { generateAdSchema, listJobsQuerySchema, reOverlaySchema } from "./ads.validation";
 import { createSuccessResponse } from "../types/api";
 import { adErrors } from "../errors/adErrors";
 import { userErrors } from "../errors/userErrors";
@@ -110,6 +110,30 @@ export const handleListMyJobs = async (
       status: dto.status,
       cursor: dto.cursor,
       limit: dto.limit,
+    });
+    res.json(createSuccessResponse(result));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const handleReOverlayText = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) throw userErrors.unauthorized();
+    const id = req.params.id;
+    if (!id || Array.isArray(id)) throw adErrors.jobNotFound();
+    const dto = parse(reOverlaySchema, req.body);
+    const result = await jobService.reOverlayText({
+      jobId: id,
+      userId,
+      headline: dto.headline,
+      subhead: dto.subhead,
+      cta: dto.cta,
     });
     res.json(createSuccessResponse(result));
   } catch (err) {

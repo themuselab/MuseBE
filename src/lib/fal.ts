@@ -32,12 +32,19 @@ export async function generateScene(
 ): Promise<GenerateSceneResult> {
   ensureConfigured();
 
+  // Muse v3 매거진 톤 LoRA 스택 (학술 검증된 비율)
+  // - MUSE_LORA_URL: v3 자연 매거진 톤 (plasticky 해결)
+  // - REALISM_LORA_URL: 자연 피부
+  // - KODA_LORA_URL: 사진/필름 톤 (보조)
   const loras: { path: string; scale: number }[] = [];
+  if (process.env.MUSE_LORA_URL) {
+    loras.push({ path: process.env.MUSE_LORA_URL, scale: 0.7 });
+  }
   if (process.env.REALISM_LORA_URL) {
-    loras.push({ path: process.env.REALISM_LORA_URL, scale: 0.8 });
+    loras.push({ path: process.env.REALISM_LORA_URL, scale: 0.7 });
   }
   if (process.env.KODA_LORA_URL) {
-    loras.push({ path: process.env.KODA_LORA_URL, scale: 0.3 });
+    loras.push({ path: process.env.KODA_LORA_URL, scale: 0.25 });
   }
   if (input.extraLoras) {
     loras.push(...input.extraLoras);
