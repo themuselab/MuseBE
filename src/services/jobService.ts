@@ -166,7 +166,7 @@ export const reOverlayText = async (input: ReOverlayInput) => {
     baseUrl: job.baseImageUrl,
     headline: input.headline,
     subhead: composePilSubhead(input.subhead, input.cta),
-    logo: "MUSE",
+    // logo 생략 — 최초 생성과 동일하게 브랜드 워터마크 미삽입.
     template: "instagram_square",
   });
 
