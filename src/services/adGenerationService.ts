@@ -266,7 +266,7 @@ const processAdGenerationJob = async (
           baseUrl: pilBaseUrl,
           headline: finalHeadline,
           subhead: composePilSubhead(finalSubhead, finalCta),
-          logo: "MUSE",
+          // logo 생략 — 사용자가 입력한 카피·CTA 외에 브랜드 워터마크 추가하지 않음.
           template: "instagram_square",
         });
         finalBuffer = overlayResult.buffer;

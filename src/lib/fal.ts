@@ -19,6 +19,15 @@ type GenerateSceneInput = {
   extraLoras?: { path: string; scale: number }[];
 };
 
+// LoRA 스택의 plasticky 잔재(특히 v3가 학습한 평균상)를 negative로 차단.
+// 모델링/ pre-train rescue 검증(variant I) — 이 negative + Realism 1.0 booster
+// + 8트리거 prompt 조합이 Muse v3 유지하면서 자연 톤 회복하는 가장 안정적 조합이었음.
+const NATURAL_TONE_NEGATIVE =
+  "plastic, rendered, cgi, 3d render, doll, mannequin, airbrushed, " +
+  "smooth skin, porcelain skin, glossy skin, blurred skin, " +
+  "fake, artificial, oil painting, illustration, cartoon, anime, " +
+  "perfect skin, idealized, glamour shot, beauty filter";
+
 type GenerateSceneResult = {
   imageUrl: string;
   width: number;
@@ -32,19 +41,20 @@ export async function generateScene(
 ): Promise<GenerateSceneResult> {
   ensureConfigured();
 
-  // Muse v3 매거진 톤 LoRA 스택 (학술 검증된 비율)
-  // - MUSE_LORA_URL: v3 자연 매거진 톤 (plasticky 해결)
-  // - REALISM_LORA_URL: 자연 피부
-  // - KODA_LORA_URL: 사진/필름 톤 (보조)
+  // Muse v3 매거진 톤 LoRA 스택.
+  // - MUSE_LORA_URL: v3 (학습 시 EMA + 5000step 등으로 평균화돼 자체 plasticky 잔재 있음.
+  //   재학습은 별도 자산이라 유지하고, 추론 시 Realism booster + negative로 잔재 억제.)
+  // - REALISM_LORA_URL: 자연 피부 (1.0으로 booster — Muse 평균화 압도)
+  // - KODA_LORA_URL: 사진/필름 톤 (0.4로 보조 — 결·필름 그레인 강화)
   const loras: { path: string; scale: number }[] = [];
   if (process.env.MUSE_LORA_URL) {
     loras.push({ path: process.env.MUSE_LORA_URL, scale: 0.7 });
   }
   if (process.env.REALISM_LORA_URL) {
-    loras.push({ path: process.env.REALISM_LORA_URL, scale: 0.7 });
+    loras.push({ path: process.env.REALISM_LORA_URL, scale: 1.0 });
   }
   if (process.env.KODA_LORA_URL) {
-    loras.push({ path: process.env.KODA_LORA_URL, scale: 0.25 });
+    loras.push({ path: process.env.KODA_LORA_URL, scale: 0.4 });
   }
   if (input.extraLoras) {
     loras.push(...input.extraLoras);
@@ -53,10 +63,12 @@ export async function generateScene(
   const result = await fal.subscribe("fal-ai/flux-lora", {
     input: {
       prompt: input.prompt,
+      negative_prompt: NATURAL_TONE_NEGATIVE,
       loras,
       image_size: input.imageSize ?? "portrait_4_3",
       num_inference_steps: input.numInferenceSteps ?? 30,
-      guidance_scale: input.guidanceScale ?? 3.5,
+      // FLUX-dev sweet spot 3.0~3.5. 3.5는 LoRA 스택과 결합 시 over-saturation·plasticky 가속.
+      guidance_scale: input.guidanceScale ?? 3.0,
       num_images: 1,
       enable_safety_checker: false,
     },
