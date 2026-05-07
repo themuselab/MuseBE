@@ -68,11 +68,16 @@ ${code.typography}
 (Note: text styling is for PIL post-processing reference only.
  The image must contain NO text — see TEXT-FREE rules below.)
 
-═══ COLOR PALETTE ═══
+═══ COLOR PALETTE (research-backed — paletteRationale 참조) ═══
 Primary: ${code.palette[0]}
 Secondary: ${code.palette[1]}
 ${accentLine}
-Strict adherence to this palette, no off-brand colors.
+- Strict adherence to these EXACT hex values — no off-brand color drift
+- Do NOT warm-shift cool palettes (e.g., navy must stay navy, not amber/sand)
+- Do NOT cool-shift warm palettes (e.g., caramel must stay caramel, not gray)
+- Background MUST be a single muted desaturated tone (avoid vivid orange/red unless
+  palette explicitly includes that hue as Primary or Secondary)
+- Rationale: ${code.paletteRationale}
 
 ═══ IMAGE STYLE ═══
 ${code.imageStyle}

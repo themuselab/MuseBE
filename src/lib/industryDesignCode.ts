@@ -1,26 +1,47 @@
 /**
- * 업종별 광고 디자인 코드 — v2 (zone-based + 모델 통일)
+ * 업종별 광고 디자인 코드 — v3 (zone-based + 모델 통일 + palette 학술 근거)
  *
  * AI 측 `ai/src/adgen/industry_design_code.py` 와 1:1 동기화.
  * Python 원본의 dict[str, dict]를 TS로 그대로 옮긴 형태.
  *
- * 학술 근거:
+ * ─── 학술 근거 (모델·레이아웃 — academicRef 필드) ───
  * 1. Vaughn (1986) FCB Grid — 관여도 × 이성/감성
  * 2. Holbrook & Hirschman (1982) — Hedonic vs Utilitarian
  * 3. Pieters & Wedel (2004) JoM 68(2) — image size attention
  * 4. Bakhshi et al. (2014) CHI 2014 — face engagement +38%
  * 5. 한양대 광고 메타분석 175편 — 모델-제품 매칭 +24.8%
+ *
+ * ─── 학술 근거 (color/palette — paletteRationale 필드) ───
+ * 6. Labrecque & Milne (2012) JAMS 40(5) — color hue → brand personality
+ *    빨강=excitement, 파랑=competence/trust, 노랑=sincerity,
+ *    보라=sophistication, 초록=ruggedness/peace
+ * 7. Hagtvedt & Brakus (2009) JCR 36(4) — 채도 ↓ → premium 지각 ↑
+ * 8. Mehta & Zhu (2009) Science 323 — 빨강=detail/주의, 파랑=creative
+ * 9. Bottomley & Doyle (2006) JMR 23 — functional=blue/black,
+ *    sensory-social=warm/colorful
+ * 10. Bagchi & Cheema (2013) JCP 23(2) — 빨강=urgency/action; 가격 표현
+ * 11. Singh (2006) Mgmt. Decision 44 — 첫 90초 색상이 60~90% 결정
+ * 12. Aslam (2006) J. Marketing Comm 12 — 한국·동아시아 색상 의미
+ *     (흰색=청결/순수, 빨강=축제/행운, 파랑=신뢰, gold=권위)
+ *
+ * v2 → v3 변경:
+ *   - DesignCode에 paletteRationale 필드 추가 (36 업종 전수 학술 매핑)
+ *   - sand accent(#C4A57B) 제거 — Koda LoRA·warm prompt 결합 시 오렌지로 워밍
+ *     드리프트해 의도된 저채도 sophistication과 어긋나는 사례 production 보고됨.
+ *     · 패션·의류 / 옷가게: deep navy(#1F2A44)로 교체 (Labrecque 검정/navy=sophistication)
+ *     · 미용실·살롱: charcoal(#3E3E3E)로 교체 (살롱 차별화, Hagtvedt 저채도 유지)
  */
 
 export type DesignCode = {
   framework: string;
-  academicRef: string;
+  academicRef: string;          // 모델·레이아웃 학술 근거
   modelPersona: string;
   appeal: string;
   expression: string;
   layout: string;
   typography: string;
   palette: string[];
+  paletteRationale: string;     // palette/color 학술 근거 (Labrecque, Hagtvedt 등)
   imageStyle: string;
   mood: string;
   examples: string;
@@ -34,6 +55,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "금융·보험": {
     framework: "high-involvement rational",
     academicRef: "전문가 모델 +9.5% (한양대 메타분석)",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑=competence/trust. " +
+      "Bottomley & Doyle (2006): 금융=functional 카테고리, blue/black 권장. " +
+      "Hagtvedt & Brakus (2009): 저채도→premium 지각.",
     modelPersona: "trustworthy professional 30~40s in business attire",
     appeal: "rational",
     expression: "direct (numbers, data, facts)",
@@ -55,6 +80,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "보건·의료": {
     framework: "high-involvement rational + warm",
     academicRef: "신뢰성+편안함 결합 (Bakhshi face +38%)",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑/초록=trust/health. " +
+      "Aslam (2006): 한국 흰색=청결·순수. " +
+      "Bottomley & Doyle (2006): functional 카테고리, blue/white 권장.",
     modelPersona: "trustworthy comforting 30~50s in medical white coat",
     appeal: "rational + reassuring",
     expression: "direct + warm",
@@ -76,6 +105,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "법률·경찰·소방·교도·국방": {
     framework: "high-involvement rational",
     academicRef: "신뢰성·전문성 (Bakhshi face +38%)",
+    paletteRationale:
+      "Labrecque & Milne (2012): 검정=sophistication/authority brand personality. " +
+      "Aslam (2006): gold=prestige(고대 한자권 황금=권위). " +
+      "Hagtvedt & Brakus (2009): 저채도+검정=premium 권위.",
     modelPersona: "authoritative confident 40~50s in formal suit",
     appeal: "rational",
     expression: "direct (authority signals)",
@@ -96,6 +129,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "전기·전자·정보통신": {
     framework: "high-involvement rational",
     academicRef: "스펙·기능 강조 효과 ↑ + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑=competence + innovation 연상. " +
+      "Bottomley & Doyle (2006): tech=functional, blue/black 권장. " +
+      "Mehta & Zhu (2009): 파랑=creative cognition 활성화.",
     modelPersona: "professional sophisticated 20~30s tech-savvy demeanor",
     appeal: "rational + future-tech",
     expression: "direct + visual demos",
@@ -115,6 +152,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "자동차": {
     framework: "high-involvement rational + emotional",
     academicRef: "라이프스타일 + 스펙 균형 (Bakhshi face +38%)",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 저채도 검정/silver=luxury·premium. " +
+      "Bottomley & Doyle (2006): 자동차=고관여 functional, 무채색 권장. " +
+      "Labrecque & Milne (2012): 검정=sophistication·excitement 균형.",
     modelPersona: "confident sophisticated 30~40s by vehicle",
     appeal: "rational + lifestyle aspiration",
     expression: "direct + cinematic",
@@ -137,6 +178,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "패션·의류": {
     framework: "high-involvement emotional",
     academicRef: "매력성 효과 가장 강한 카테고리 (한양대 +24.8%)",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 저채도→premium·luxury 지각 (sand accent 워밍 드리프트로 navy로 교체). " +
+      "Labrecque & Milne (2012): 검정/navy=sophistication brand personality. " +
+      "Singh (2006): 첫 90초 60~90% 색상 결정 — 명확한 monochrome 선호.",
     modelPersona: "sophisticated editorial 20~30s wearing the seasonal outfit",
     appeal: "emotional + aspirational",
     expression: "metaphorical (mood, lifestyle)",
@@ -148,7 +193,7 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "- Generous whitespace, magazine spread feel\n" +
       "- Subject max 55% of frame",
     typography: "modern serif display (Cormorant Garamond) + minimal sans subhead",
-    palette: ["#F5F0E6 (cream)", "#1A1A1A", "#C4A57B (sand accent)"],
+    palette: ["#F5F0E6 (cream)", "#1A1A1A", "#1F2A44 (deep navy accent)"],
     imageStyle: "editorial fashion photography, dramatic side light, 3/4 angle, magazine quality",
     mood: "sophisticated, refined, aspirational, magazine editorial",
     examples: "Jacquemus·COS·Acne Studios 톤",
@@ -156,6 +201,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "옷가게": {
     framework: "high-involvement emotional",
     academicRef: "매력성 효과 극대화 (한양대 +24.8%)",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 저채도→premium 지각 (sand accent 워밍 드리프트로 navy로 교체). " +
+      "Labrecque & Milne (2012): 검정/navy=sophistication. " +
+      "Bottomley & Doyle (2006): 패션=sensory-social, but premium positioning은 muted neutral.",
     modelPersona: "sophisticated editorial 20~30s wearing seasonal outfit",
     appeal: "emotional",
     expression: "metaphorical",
@@ -166,7 +215,7 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "- Bottom-right 20%: BLANK for CTA overlay\n" +
       "- Subject max 55% of frame",
     typography: "modern serif display + minimal sans",
-    palette: ["#F5F0E6", "#1A1A1A", "#C4A57B"],
+    palette: ["#F5F0E6", "#1A1A1A", "#1F2A44"],
     imageStyle: "editorial fashion, dramatic light, magazine quality",
     mood: "sophisticated, refined, editorial",
     examples: "Jacquemus·COS 톤",
@@ -174,6 +223,11 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "뷰티·화장품": {
     framework: "high-involvement emotional + hedonic",
     academicRef: "hedonic + abstract image 매칭 + Bakhshi face +38%",
+    paletteRationale:
+      "Bottomley & Doyle (2006): 뷰티=sensory-social 카테고리, warm pastel 권장. " +
+      "Hagtvedt & Brakus (2009): pearl/blush 저채도=luxury 지각. " +
+      "Aslam (2006): gold=prestige 동아시아 일관. " +
+      "Labrecque & Milne (2012): 분홍=warmth/sincerity.",
     modelPersona: "fresh dewy 20s OR mature elegant 30~40s, beauty close-up",
     appeal: "emotional + sensorial",
     expression: "abstract (texture, glow, sensation)",
@@ -194,6 +248,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "화장품": {
     framework: "high-involvement emotional + hedonic",
     academicRef: "hedonic + abstract 매칭 + Bakhshi face +38%",
+    paletteRationale:
+      "Bottomley & Doyle (2006): sensory-social 카테고리, warm pastel. " +
+      "Hagtvedt & Brakus (2009): 저채도→luxury. " +
+      "Labrecque & Milne (2012): 분홍/gold=sincerity/prestige.",
     modelPersona: "fresh dewy or mature elegant beauty close-up",
     appeal: "emotional + sensorial",
     expression: "abstract",
@@ -214,6 +272,9 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "문화·예술·디자인·방송": {
     framework: "high-involvement emotional",
     academicRef: "매력성·세련됨",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 채도 대비(주류 muted + vivid 액센트)=incongruity → 'creative' 지각. " +
+      "Labrecque & Milne (2012): vivid 액센트=excitement·기억점 강화.",
     modelPersona: "creative sophisticated 20~40s, artist persona",
     appeal: "emotional + creative",
     expression: "metaphorical, artistic",
@@ -237,6 +298,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "교육·학원": {
     framework: "low-involvement rational",
     academicRef: "친근·신뢰 결합 + Bakhshi face +38%",
+    paletteRationale:
+      "Mehta & Zhu (2009): 따뜻한 톤=focus/attention 강화 (학습 환경). " +
+      "Labrecque & Milne (2012): 노랑/오렌지=sincerity·ruggedness, 친근감 형성. " +
+      "Bagchi & Cheema (2013): orange=action(achievement) 신호.",
     modelPersona: "approachable trustworthy teacher 30~40s with student",
     appeal: "rational + warm",
     expression: "direct (results, testimonials)",
@@ -256,6 +321,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "사회복지·종교": {
     framework: "low-involvement rational + warm",
     academicRef: "편안함·친근함 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 노랑/갈=sincerity, 초록=peace. " +
+      "Mehta & Zhu (2009): warm earth tones=community/warmth 연상. " +
+      "Bottomley & Doyle (2006): 비영리=sensory-social, warm 권장.",
     modelPersona: "warm comforting all ages, caregiver or community member",
     appeal: "emotional + community",
     expression: "narrative, testimonial",
@@ -279,6 +348,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "음식서비스": {
     framework: "low-involvement emotional",
     academicRef: "감성·식음료 친근함 + Bakhshi face +38%",
+    paletteRationale:
+      "Singh (2006): 따뜻한 톤(빨강·노랑·갈)=식욕 자극 (식음료 광고 기본). " +
+      "Mehta & Zhu (2009): 빨강=주의 환기, 따뜻함=appetite 활성화. " +
+      "Bottomley & Doyle (2006): 식음료=sensory-social, warm earth 권장.",
     modelPersona: "friendly approachable chef/server 20~40s with food",
     appeal: "emotional + sensorial",
     expression: "appetizing visual",
@@ -299,6 +372,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "카페·커피숍": {
     framework: "low-involvement emotional",
     academicRef: "친근함·감성 + Bakhshi face +38%",
+    paletteRationale:
+      "Singh (2006): 따뜻한 cream/caramel=appetite + comfort. " +
+      "Labrecque & Milne (2012): 갈색=ruggedness/sincerity, 카페 lifestyle 정체성. " +
+      "Mehta & Zhu (2009): warm tones=focus(독서·작업 환경).",
     modelPersona: "friendly warm 20~30s holding coffee cup, gentle smile",
     appeal: "emotional",
     expression: "lifestyle moment",
@@ -318,6 +395,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "주류": {
     framework: "low-involvement emotional + hedonic",
     academicRef: "주류=저관여+감성, 활발함 + Bakhshi face",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 검정+gold=hedonic premium. " +
+      "Labrecque & Milne (2012): 빨강(wine)=excitement·passion, gold=sophistication. " +
+      "Bottomley & Doyle (2006): 주류=sensory-social hedonic, warm/dark 조합.",
     modelPersona: "energetic sociable 20~30s in social drinking moment",
     appeal: "emotional + social",
     expression: "abstract (mood, party, atmosphere)",
@@ -337,6 +418,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "이용·숙박·여행·오락·스포츠": {
     framework: "low-involvement emotional",
     academicRef: "활발·친근 + Bakhshi face engagement",
+    paletteRationale:
+      "Bagchi & Cheema (2013): orange/yellow=action·urgency, 여행 부킹 행동 자극. " +
+      "Mehta & Zhu (2009): 따뜻한 톤=energy/aspiration. " +
+      "Labrecque & Milne (2012): 노랑=sincerity·excitement.",
     modelPersona: "energetic active 20~40s in destination context",
     appeal: "emotional + aspirational",
     expression: "lifestyle moments, scenery",
@@ -356,6 +441,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "헬스·스포츠": {
     framework: "high-involvement emotional",
     academicRef: "활발·전문성 결합 + Bakhshi face +38%",
+    paletteRationale:
+      "Bagchi & Cheema (2013): 빨강=action/urgency, 운동 동기 자극. " +
+      "Mehta & Zhu (2009): 빨강=detail focus(자세·기록 중심). " +
+      "Hagtvedt & Brakus (2009): 검정+빨강=premium fitness.",
     modelPersona: "athletic energetic 20~30s in motion",
     appeal: "emotional + performance",
     expression: "direct (results) + abstract (motivation)",
@@ -379,6 +468,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "병원": {
     framework: "high-involvement rational + warm",
     academicRef: "전문성+편안함 + Bakhshi face +38%",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑/초록=trust/health 일관. " +
+      "Aslam (2006): 한국 흰색=청결, 의료 표준. " +
+      "Bottomley & Doyle (2006): 의료=functional·trust, blue/white 권장.",
     modelPersona: "trustworthy doctor 30~40s in white coat, gentle smile",
     appeal: "rational + reassuring",
     expression: "direct + warm",
@@ -400,6 +493,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "미용실·살롱": {
     framework: "high-involvement emotional",
     academicRef: "매력성 (헤어 효과 = 얼굴 필수) + Bakhshi face +38%",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 저채도→premium·sophistication (sand→charcoal로 교체해 워밍 드리프트 차단). " +
+      "Labrecque & Milne (2012): 검정/charcoal=sophistication. " +
+      "Bottomley & Doyle (2006): 미용=sensory-social, but premium 살롱은 muted neutral.",
     modelPersona: "sophisticated stylish 20~40s with elegant haircut",
     appeal: "emotional + transformation",
     expression: "before-after, lifestyle",
@@ -411,7 +508,7 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "- Bottom-right 20%: BLANK for CTA overlay\n" +
       "- Subject max 60% of frame",
     typography: "modern serif + elegant sans",
-    palette: ["#F5F0E6", "#1A1A1A", "#C4A57B"],
+    palette: ["#F5F0E6 (cream)", "#1A1A1A", "#3E3E3E (charcoal accent)"],
     imageStyle: "salon photography, dramatic side light, hair texture",
     mood: "sophisticated, transformative, premium",
     examples: "준오헤어·박승철·압구정살롱 톤",
@@ -419,6 +516,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "꽃집": {
     framework: "high-involvement emotional + hedonic",
     academicRef: "감성·심미 + Bakhshi face +38%",
+    paletteRationale:
+      "Labrecque & Milne (2012): 분홍=warmth/sincerity, 초록=peace/nature. " +
+      "Bottomley & Doyle (2006): 꽃=sensory-social, soft pastel 권장. " +
+      "Hagtvedt & Brakus (2009): 저채도 pastel=premium 플로리스트 톤.",
     modelPersona: "warm gentle 20~40s florist or customer holding flowers",
     appeal: "emotional + sensory",
     expression: "abstract beauty",
@@ -438,6 +539,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "부동산": {
     framework: "high-involvement rational",
     academicRef: "부동산=고관여+이성 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): navy=competence, gold=prestige. " +
+      "Hagtvedt & Brakus (2009): 저채도+gold=premium 부동산 표준. " +
+      "Aslam (2006): 한국 gold=권위/안정.",
     modelPersona: "trustworthy realtor 40~50s in suit at property",
     appeal: "rational + aspiration",
     expression: "direct (specs, location)",
@@ -457,6 +562,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "자동차정비": {
     framework: "low-involvement rational",
     academicRef: "신뢰·친근·전문 + Bakhshi face engagement",
+    paletteRationale:
+      "Mehta & Zhu (2009): 오렌지=주의/action, 정비 신호. " +
+      "Bagchi & Cheema (2013): orange=urgency 표시. " +
+      "Labrecque & Milne (2012): 검정=ruggedness/dependable.",
     modelPersona: "competent friendly mechanic 30~40s in workshop",
     appeal: "rational + trust",
     expression: "direct (capability)",
@@ -480,6 +589,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "사업관리·경영·회계·사무": {
     framework: "high-involvement rational",
     academicRef: "전문성·신뢰감 + Bakhshi face +38%",
+    paletteRationale:
+      "Labrecque & Milne (2012): navy/blue=competence/trust. " +
+      "Bottomley & Doyle (2006): B2B 컨설팅=functional, blue/black 권장. " +
+      "Hagtvedt & Brakus (2009): 저채도=premium B2B.",
     modelPersona: "professional executive 30~40s in office attire",
     appeal: "rational",
     expression: "direct (efficiency, ROI)",
@@ -499,6 +612,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "건설": {
     framework: "high-involvement rational",
     academicRef: "전문성·신뢰감 + Bakhshi face engagement",
+    paletteRationale:
+      "Mehta & Zhu (2009): 노랑(safety)=주의 환기, 작업 표준. " +
+      "Labrecque & Milne (2012): 검정=ruggedness/power. " +
+      "Aslam (2006): 한국 노랑(안전모)=신뢰·표준.",
     modelPersona: "rugged competent foreman 30~50s in safety gear",
     appeal: "rational + reliability",
     expression: "direct (capability, scale)",
@@ -518,6 +635,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "기계·재료·전기·전자": {
     framework: "high-involvement rational",
     academicRef: "스펙·기능 강조 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑=competence + 정밀. " +
+      "Bottomley & Doyle (2006): 산업재 functional=blue/black. " +
+      "Hagtvedt & Brakus (2009): 저채도 industrial=precision 신뢰.",
     modelPersona: "engineer technical 30~40s with product",
     appeal: "rational",
     expression: "direct (specs, performance)",
@@ -537,6 +658,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "화학·바이오": {
     framework: "high-involvement rational",
     academicRef: "전문성·과학적 신뢰 + Bakhshi face +38%",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑=competence + scientific trust. " +
+      "Aslam (2006): 한국 흰색=sterile/연구 표준. " +
+      "Bottomley & Doyle (2006): 과학·바이오=functional, white/blue 표준.",
     modelPersona: "scientist researcher 30~40s in lab coat",
     appeal: "rational + scientific",
     expression: "direct (research, efficacy)",
@@ -556,6 +681,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "환경·에너지·안전": {
     framework: "high-involvement rational + warm",
     academicRef: "신뢰성·미래지향 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 초록=ruggedness/peace + sustainability 연상. " +
+      "Aslam (2006): 한국 초록=자연/건강. " +
+      "Hagtvedt & Brakus (2009): muted 초록=premium ESG.",
     modelPersona: "responsible competent 30~40s in eco-context",
     appeal: "rational + ethical",
     expression: "direct + visionary",
@@ -575,6 +704,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "인쇄·목재·가구·공예": {
     framework: "high-involvement emotional + hedonic",
     academicRef: "공예·심미 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 노랑/갈=sincerity·craftsmanship. " +
+      "Bottomley & Doyle (2006): 공예=sensory-social, warm wood/paper. " +
+      "Hagtvedt & Brakus (2009): muted earth=artisanal premium.",
     modelPersona: "artisan thoughtful 30~50s in workshop",
     appeal: "emotional + craftsmanship",
     expression: "abstract (texture, detail)",
@@ -594,6 +727,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "운전·운송·물류": {
     framework: "low-involvement rational",
     academicRef: "신뢰·효율 + Bakhshi face engagement",
+    paletteRationale:
+      "Bagchi & Cheema (2013): orange=urgency/delivery action. " +
+      "Mehta & Zhu (2009): 빨강·오렌지=주의/속도. " +
+      "Labrecque & Milne (2012): 검정+orange=dependable + active.",
     modelPersona: "dependable approachable driver/courier 30~40s in uniform",
     appeal: "rational + speed",
     expression: "direct (delivery, time)",
@@ -613,6 +750,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "경비·청소·시설관리": {
     framework: "low-involvement rational",
     academicRef: "신뢰·청결 + Bakhshi face engagement",
+    paletteRationale:
+      "Aslam (2006): 한국 흰색=청결 표준. " +
+      "Labrecque & Milne (2012): 파랑=trust, navy=competence. " +
+      "Bottomley & Doyle (2006): 시설 서비스=functional, white/blue.",
     modelPersona: "attentive professional 30~50s in uniform",
     appeal: "rational + reliability",
     expression: "direct (cleanliness, security)",
@@ -632,6 +773,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "농림어업·식품": {
     framework: "low-involvement emotional + warm",
     academicRef: "친근·자연·신뢰 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 노랑/갈=sincerity, 초록=ruggedness/nature. " +
+      "Bottomley & Doyle (2006): 식품·농산=sensory-social, warm earth + green. " +
+      "Mehta & Zhu (2009): warm tones=appetite + authenticity.",
     modelPersona: "earthy genuine farmer/producer 40~60s in farm setting",
     appeal: "emotional + authenticity",
     expression: "narrative + lifestyle",
@@ -651,6 +796,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "영업판매·유통": {
     framework: "low-involvement emotional",
     academicRef: "친근·활발 + Bakhshi face +38%",
+    paletteRationale:
+      "Bagchi & Cheema (2013): 빨강=urgency, 가격 행동 자극(SALE 표현). " +
+      "Mehta & Zhu (2009): 빨강·노랑=detail focus(가격표·할인표). " +
+      "Singh (2006): 빨강·노랑=충동구매 자극 첫 90초.",
     modelPersona: "energetic friendly staff 20~40s in retail",
     appeal: "emotional + bargain",
     expression: "direct + lively",
@@ -670,6 +819,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "법무사·세무사·전문서비스": {
     framework: "high-involvement rational",
     academicRef: "전문성·신뢰성 + Bakhshi face +38%",
+    paletteRationale:
+      "Hagtvedt & Brakus (2009): 저채도 검정=authority + premium. " +
+      "Labrecque & Milne (2012): 검정=sophistication, gold=prestige. " +
+      "Aslam (2006): 한국 gold=전문가 위상.",
     modelPersona: "authoritative confident 40~60s in formal suit",
     appeal: "rational",
     expression: "direct (expertise, results)",
@@ -689,6 +842,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "빵집·디저트": {
     framework: "low-involvement emotional + hedonic",
     academicRef: "감각적·달콤한 어필 + Bakhshi face engagement",
+    paletteRationale:
+      "Bottomley & Doyle (2006): 디저트=sensory-social hedonic, warm pastel. " +
+      "Singh (2006): warm 분홍·캐러멜=appetite + 달콤함 연상. " +
+      "Mehta & Zhu (2009): warm tones=식욕·따뜻함.",
     modelPersona: "warm cheerful baker/customer 20~40s with pastries",
     appeal: "emotional + sensorial",
     expression: "abstract (texture, sweetness)",
@@ -709,6 +866,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "편의점·소형리테일": {
     framework: "low-involvement emotional",
     academicRef: "친근·접근성 + Bakhshi face +38%",
+    paletteRationale:
+      "Bagchi & Cheema (2013): 빨강·노랑=urgency/즉시 구매. " +
+      "Singh (2006): 첫 90초 색상 결정—빨강·노랑=즉각성. " +
+      "Mehta & Zhu (2009): 빨강·노랑=주의 환기 attention 광고.",
     modelPersona: "everyday relatable 20~30s in store setting",
     appeal: "emotional + convenience",
     expression: "direct + lively",
@@ -732,6 +893,10 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
   "기타": {
     framework: "balanced",
     academicRef: "친근+신뢰 균형 + Bakhshi face engagement",
+    paletteRationale:
+      "Labrecque & Milne (2012): 파랑=competence/trust 안전한 fallback. " +
+      "Hagtvedt & Brakus (2009): 무채색+저채도 accent=neutral premium. " +
+      "Bottomley & Doyle (2006): 일반 광고 fallback=blue/black/white.",
     modelPersona: "approachable warm 30~40s",
     appeal: "balanced",
     expression: "balanced",
