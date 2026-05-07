@@ -22,10 +22,6 @@ const COST_FLUX_CENTS = 4;
 const COST_GPT_IMAGE_CENTS = 21;
 const COST_FACE_SWAP_CENTS = 5;
 
-// PIL 서비스가 cta 인자를 지원하는지 (옵션 A 정식 마이그 시 true).
-// 현재 PIL은 headline/subhead만 받으므로 BE에서 subhead+cta `\n` 합쳐 보내는 fallback (옵션 B).
-const PIL_HAS_CTA = process.env.PIL_HAS_CTA === "true";
-
 const buildScenePrompt = (params: {
   industry?: string | null;
   item?: string | null;
@@ -42,6 +38,27 @@ const buildScenePrompt = (params: {
   });
 };
 
+// 의류·착용형 제품 키워드 — 마네킹/옷걸이가 아니라 모델이 직접 입은 모습으로 강제.
+// 기존엔 "들고 있거나 옆에 배치" 지시 때문에 정장이 마네킹에 걸려있는 컷이 생성되는
+// 케이스가 보고됨. 의류 카테고리는 "착용" 강제, 그 외엔 기존 동작 유지.
+const WEARABLE_KEYWORDS = [
+  "정장", "수트", "양복",
+  "셔츠", "블라우스", "티셔츠",
+  "원피스", "드레스",
+  "코트", "자켓", "재킷", "점퍼", "패딩",
+  "바지", "팬츠", "청바지", "슬랙스",
+  "치마", "스커트",
+  "신발", "구두", "운동화", "스니커즈",
+  "모자", "캡", "베레모",
+  "안경", "선글라스",
+  "시계", "주얼리", "목걸이", "귀걸이", "반지",
+  "가방", "백팩", "핸드백",
+  "스카프", "넥타이",
+];
+
+const isWearableItem = (item: string): boolean =>
+  WEARABLE_KEYWORDS.some((kw) => item.includes(kw));
+
 const buildComposePrompt = (params: {
   item?: string | null;
 }): string => {
@@ -49,12 +66,24 @@ const buildComposePrompt = (params: {
     "첫 번째 이미지의 인물을 그대로 유지하면서 광고 사진을 만들어줘.",
   ];
   if (params.item) {
-    lines.push(
-      `두 번째 이미지의 제품(${params.item})을 인물이 자연스럽게 들고 있거나 옆에 배치해줘. 제품의 형태와 색상은 유지.`,
-    );
+    if (isWearableItem(params.item)) {
+      // 착용형 제품 — 인물이 직접 입고 있어야 함.
+      lines.push(
+        `두 번째 이미지의 의류·착용형 제품(${params.item})을 인물이 직접 착용한 모습으로 합성해줘.`,
+        "마네킹·옷걸이·진열대·받침대 위에 놓이지 않고, 인물 본인이 그 제품을 자연스럽게 입거나 착용한 상태여야 함.",
+        "제품의 형태·색상·소재 디테일은 두 번째 이미지와 동일하게 유지.",
+      );
+    } else {
+      lines.push(
+        `두 번째 이미지의 제품(${params.item})을 인물이 자연스럽게 들고 있거나 옆에 배치해줘. 제품의 형태와 색상은 유지.`,
+      );
+    }
   }
   lines.push(
-    "원본 인물의 얼굴/체형/의상 톤은 유지. 사진에는 사람과 제품, 배경만 있도록.",
+    "원본 인물의 얼굴/체형/피부 톤은 유지. 사진에는 사람과 제품, 배경만 있도록.",
+  );
+  lines.push(
+    "구도: 인물·제품은 화면 중앙~우측·하단 위주. 좌상단 1/3 영역은 단색 배경으로 비워둘 것 (PIL이 한글 카피를 후처리로 얹음).",
   );
   lines.push("");
   lines.push(TEXT_FREE_RULES);
@@ -63,12 +92,12 @@ const buildComposePrompt = (params: {
 
 const composePilSubhead = (
   subhead: string | null | undefined,
-  cta: string | null | undefined,
+  _cta: string | null | undefined,
 ): string | undefined => {
-  if (PIL_HAS_CTA) return subhead ?? undefined;
-  // PIL이 cta 미지원 → subhead와 cta를 줄바꿈으로 합쳐 보냄 (zone 분리는 안 됨)
-  const parts = [subhead, cta].filter((s): s is string => Boolean(s && s.length > 0));
-  return parts.length > 0 ? parts.join("\n") : undefined;
+  // CTA는 더 이상 이미지에 자동 합성하지 않음 — 사용자 요청.
+  // 모든 광고에 자동 CTA 박는 게 광고주 의도와 어긋남(예: "지금 맞춤보기"가 정장 광고에
+  // 일률적으로 박힘). cta 컬럼·textOverlays는 그대로 유지해 추후 에디터에서 수동 추가 가능.
+  return subhead ?? undefined;
 };
 
 const isContentPolicyError = (err: unknown): boolean => {

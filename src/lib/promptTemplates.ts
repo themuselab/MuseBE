@@ -4,11 +4,17 @@
  * AI 측 ai/src/adgen/prompt_builder.py 의 ACADEMIC_LAYOUT_RULES 와 1:1 동기화.
  */
 export const ACADEMIC_LAYOUT_RULES = `
-ACADEMIC ZONE RULES (academic-validated):
+ACADEMIC ZONE RULES (academic-validated, STRICT — text is overlaid post-process):
 - Subject (model + product) must NOT exceed 55% of total frame area
 - Image content max 65%, blank zones min 35%
-- Top-left 25% area: BLANK clean solid background for text overlay
-- Bottom-right 20% area: BLANK clean solid background for CTA overlay
+
+POSITIONING (CRITICAL — text overlay zones must be BLANK BACKGROUND, no subject):
+- Position the model/subject in the LOWER-RIGHT or CENTER-RIGHT half of the frame
+- The TOP-LEFT THIRD of the frame must be ENTIRELY BLANK clean solid background
+  (no head, no shoulders, no product, no decoration — only the backdrop color)
+- Model's head/face must NOT enter the top-left third under any circumstance
+- Bottom-right 20% area: also BLANK solid background (reserved for optional CTA)
+
 - Generous negative space — no edge-to-edge composition
 - Reference: Pieters & Wedel (2004) Journal of Marketing 68(2), p.43
 `.trim();
