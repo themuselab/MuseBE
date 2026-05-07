@@ -19,15 +19,6 @@ type GenerateSceneInput = {
   extraLoras?: { path: string; scale: number }[];
 };
 
-// LoRA 스택의 plasticky 잔재(특히 v3가 학습한 평균상)를 negative로 차단.
-// 모델링/ pre-train rescue 검증(variant I) — 이 negative + Realism 1.0 booster
-// + 8트리거 prompt 조합이 Muse v3 유지하면서 자연 톤 회복하는 가장 안정적 조합이었음.
-const NATURAL_TONE_NEGATIVE =
-  "plastic, rendered, cgi, 3d render, doll, mannequin, airbrushed, " +
-  "smooth skin, porcelain skin, glossy skin, blurred skin, " +
-  "fake, artificial, oil painting, illustration, cartoon, anime, " +
-  "perfect skin, idealized, glamour shot, beauty filter";
-
 type GenerateSceneResult = {
   imageUrl: string;
   width: number;
@@ -42,10 +33,12 @@ export async function generateScene(
   ensureConfigured();
 
   // Muse v3 매거진 톤 LoRA 스택.
-  // - MUSE_LORA_URL: v3 (학습 시 EMA + 5000step 등으로 평균화돼 자체 plasticky 잔재 있음.
-  //   재학습은 별도 자산이라 유지하고, 추론 시 Realism booster + negative로 잔재 억제.)
+  // - MUSE_LORA_URL: v3 (학습 시 EMA·5000step·rank 32 조합으로 텍스처 평균화 → plasticky 잔재.
+  //   재학습은 별도 자산이라 유지하고, 추론 시 Realism booster + 자연 톤 트리거 prompt로 잔재 억제.)
   // - REALISM_LORA_URL: 자연 피부 (1.0으로 booster — Muse 평균화 압도)
   // - KODA_LORA_URL: 사진/필름 톤 (0.4로 보조 — 결·필름 그레인 강화)
+  // 참고: fal-ai/flux-lora는 negative_prompt를 받지 않음 (FLUX는 native CFG 없음).
+  // plasticky 억제는 promptTemplates.QUALITY_RULES의 자연 톤 트리거(positive)로만 수행.
   const loras: { path: string; scale: number }[] = [];
   if (process.env.MUSE_LORA_URL) {
     loras.push({ path: process.env.MUSE_LORA_URL, scale: 0.7 });
@@ -63,7 +56,6 @@ export async function generateScene(
   const result = await fal.subscribe("fal-ai/flux-lora", {
     input: {
       prompt: input.prompt,
-      negative_prompt: NATURAL_TONE_NEGATIVE,
       loras,
       image_size: input.imageSize ?? "portrait_4_3",
       num_inference_steps: input.numInferenceSteps ?? 30,
