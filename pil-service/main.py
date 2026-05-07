@@ -12,7 +12,9 @@ class OverlayRequest(BaseModel):
     base_url: str
     headline: str
     subhead: str | None = None
-    logo: str = "MUSE"
+    # logo가 null/생략/빈 문자열이면 워터마크 미삽입.
+    # BE가 사용자 입력 카피·CTA 외 자동 브랜드 워터마크를 박지 않도록 결정함에 따라 옵셔널화.
+    logo: str | None = None
     template: str = "instagram_square"
 
 
@@ -58,14 +60,16 @@ def overlay(req: OverlayRequest):
             font=mid,
         )
 
-    bbox = draw.textbbox((0, 0), req.logo, font=small)
-    lw = bbox[2] - bbox[0]
-    draw.text(
-        (W - lw - W * 0.05, H - H * 0.06),
-        req.logo,
-        fill=(255, 255, 255, 255),
-        font=small,
-    )
+    # logo가 빈 값이면 하단 워터마크 그리기 자체를 스킵.
+    if req.logo:
+        bbox = draw.textbbox((0, 0), req.logo, font=small)
+        lw = bbox[2] - bbox[0]
+        draw.text(
+            (W - lw - W * 0.05, H - H * 0.06),
+            req.logo,
+            fill=(255, 255, 255, 255),
+            font=small,
+        )
 
     final = Image.alpha_composite(img, overlay).convert("RGB")
     buf = io.BytesIO()

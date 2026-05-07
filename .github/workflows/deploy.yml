@@ -29,8 +29,10 @@ jobs:
             git reset --hard "origin/$BRANCH"
             git checkout -f "$BRANCH"
             git reset --hard "origin/$BRANCH"
-            docker compose build be
-            docker compose up -d be
+            # be + pil-service 모두 코드 빌드 대상이라 같이 재빌드.
+            # (이전 스크립트는 be만 빌드해서 pil-service/main.py 변경이 배포 안 되는 문제 있었음)
+            docker compose build be pil-service
+            docker compose up -d be pil-service
             docker compose exec -T be npx prisma migrate deploy
             docker image prune -f
             sleep 3
