@@ -44,15 +44,13 @@ const tryUnlinkPublicUrl = async (url: string | null): Promise<void> => {
   }
 };
 
-const PIL_HAS_CTA = process.env.PIL_HAS_CTA === "true";
-
 const composePilSubhead = (
   subhead: string | null | undefined,
-  cta: string | null | undefined,
+  _cta: string | null | undefined,
 ): string | undefined => {
-  if (PIL_HAS_CTA) return subhead ?? undefined;
-  const parts = [subhead, cta].filter((s): s is string => Boolean(s && s.length > 0));
-  return parts.length > 0 ? parts.join("\n") : undefined;
+  // CTA는 더 이상 이미지에 자동 합성하지 않음 — adGenerationService와 동기화.
+  // 재편집(reOverlayText) 흐름도 동일하게 subhead만 PIL에 전달.
+  return subhead ?? undefined;
 };
 
 type CreateJobInput = {
