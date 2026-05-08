@@ -11,7 +11,12 @@
  * - Pieters & Wedel (2004) Journal of Marketing 68(2), p.43 — image size attention
  */
 import { getDesignCode } from "./industryDesignCode";
-import { ACADEMIC_LAYOUT_RULES, QUALITY_RULES, TEXT_FREE_RULES } from "./promptTemplates";
+import {
+  ACADEMIC_LAYOUT_RULES,
+  FACE_PRESENTATION_RULES,
+  QUALITY_RULES,
+  TEXT_FREE_RULES,
+} from "./promptTemplates";
 
 export type AspectRatio = "9:16" | "1:1" | "16:9";
 
@@ -57,6 +62,8 @@ Korean ${input.industry} advertisement campaign — premium professional ad agen
 Featuring authentic ${persona}, natural Korean facial features.
 Face must be clearly visible (Bakhshi CHI 2014 — engagement +38%).
 
+${FACE_PRESENTATION_RULES}
+
 ═══ LAYOUT (Strict Zone Allocation) ═══
 ${code.layout}
 Aspect ratio: ${aspect} ${aspectDescription(aspect)}.
@@ -68,11 +75,16 @@ ${code.typography}
 (Note: text styling is for PIL post-processing reference only.
  The image must contain NO text — see TEXT-FREE rules below.)
 
-═══ COLOR PALETTE ═══
+═══ COLOR PALETTE (research-backed — paletteRationale 참조) ═══
 Primary: ${code.palette[0]}
 Secondary: ${code.palette[1]}
 ${accentLine}
-Strict adherence to this palette, no off-brand colors.
+- Strict adherence to these EXACT hex values — no off-brand color drift
+- Do NOT warm-shift cool palettes (e.g., navy must stay navy, not amber/sand)
+- Do NOT cool-shift warm palettes (e.g., caramel must stay caramel, not gray)
+- Background MUST be a single muted desaturated tone (avoid vivid orange/red unless
+  palette explicitly includes that hue as Primary or Secondary)
+- Rationale: ${code.paletteRationale}
 
 ═══ IMAGE STYLE ═══
 ${code.imageStyle}
