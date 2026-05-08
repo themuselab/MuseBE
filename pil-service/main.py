@@ -12,10 +12,26 @@ class OverlayRequest(BaseModel):
     base_url: str
     headline: str
     subhead: str | None = None
+    # 텍스트 색 — hex string. 미지정 시 기존 흰색 유지(구버전 BE 호환).
+    headline_color: str = "#FFFFFF"
+    subhead_color: str = "#FFFFFF"
     # logo가 null/생략/빈 문자열이면 워터마크 미삽입.
     # BE가 사용자 입력 카피·CTA 외 자동 브랜드 워터마크를 박지 않도록 결정함에 따라 옵셔널화.
     logo: str | None = None
     template: str = "instagram_square"
+
+
+def hex_to_rgba(hex_str: str, alpha: int = 255) -> tuple[int, int, int, int]:
+    h = hex_str.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    if len(h) != 6:
+        return (255, 255, 255, alpha)
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return (255, 255, 255, alpha)
+    return (r, g, b, alpha)
 
 
 @app.get("/health")
@@ -49,14 +65,14 @@ def overlay(req: OverlayRequest):
     draw.text(
         (W * 0.05, H * 0.06),
         req.headline,
-        fill=(255, 255, 255, 255),
+        fill=hex_to_rgba(req.headline_color, 255),
         font=big,
     )
     if req.subhead:
         draw.text(
             (W * 0.05, H * 0.16),
             req.subhead,
-            fill=(255, 255, 255, 230),
+            fill=hex_to_rgba(req.subhead_color, 230),
             font=mid,
         )
 

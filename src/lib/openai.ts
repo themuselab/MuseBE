@@ -149,7 +149,7 @@ const COPY_SYSTEM_PROMPT = `너는 한국어 광고 카피라이터다.
 반드시 다음 JSON 형식으로만 응답:
 {"headline":"...", "subhead":"...", "cta":"...", "tone":"warm"}`;
 
-const DEFAULT_OVERLAY_LAYOUT = {
+export const DEFAULT_OVERLAY_LAYOUT = {
   headline: { x: 5, y: 8, width: 90, height: 14, textAlign: "left" as const },
   subhead: { x: 5, y: 22, width: 90, height: 8, textAlign: "left" as const },
   cta: { x: 60, y: 78, width: 35, height: 8, textAlign: "right" as const },

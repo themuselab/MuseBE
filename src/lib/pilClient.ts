@@ -2,6 +2,8 @@ type OverlayInput = {
   baseUrl: string;
   headline: string;
   subhead?: string;
+  headlineColor?: string;
+  subheadColor?: string;
   logo?: string;
   template?: string;
 };
@@ -23,6 +25,8 @@ export async function overlayKoreanText(
       base_url: input.baseUrl,
       headline: input.headline,
       subhead: input.subhead ?? null,
+      headline_color: input.headlineColor ?? "#FFFFFF",
+      subhead_color: input.subheadColor ?? "#FFFFFF",
       // logo 미지정 시 PIL 측에서 워터마크 미삽입(null) — 사용자 카피·CTA만 노출.
       // 기존엔 "MUSE" 하드코딩 워터마크가 광고 하단에 박혀있어 다운로드 시에도
       // 사용자 의도와 무관한 브랜드명이 노출되는 문제가 있었음.

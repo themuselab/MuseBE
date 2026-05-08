@@ -15,7 +15,7 @@ const productImagePathSchema = z
 
 export const generateAdSchema = z.object({
   catalogModelId: z.string().min(1),
-  productImagePath: productImagePathSchema,
+  productImagePath: productImagePathSchema.optional(),
   prompt: z.string().trim().min(1).max(1000),
   headline: z.string().trim().max(100).optional(),
   subhead: z.string().trim().max(200).optional(),
