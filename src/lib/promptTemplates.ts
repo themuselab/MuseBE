@@ -40,14 +40,48 @@ CRITICAL TEXT-FREE REQUIREMENTS:
  * 조합으로 추론 단에서 자연 톤이 회복됨.
  *
  * GPT-image-2/edit이 avatars_6pose 데이터셋을 만들 때 사용한 것과 동일 트리거.
+ *
+ * 주의: 텍스처 트리거(visible pores, stubble, slight asymmetry 등)는 배경·의상·
+ * 피부 일반에 적용되지만, FACE_PRESENTATION_RULES가 face 영역만 별도 가이드함
+ * (Stage 3 face-swap에서 catalog face로 교체될 영역이라 디테일 과잉이면 swap
+ * 경계가 부각됨).
  */
 export const QUALITY_RULES = `
 - Ultra-photorealistic professional commercial photography
 - Magazine-grade editorial quality, shot on 35mm Kodak Portra 400 film, unretouched RAW photo
-- Natural skin texture with visible pores, fine wrinkles, and subtle imperfections
-- Film grain, lifelike skin tone, slight asymmetry, real human face
-- Stubble allowed for male subjects, no makeup glow on female subjects
+- Natural skin texture with visible pores and fine wrinkles on hands/neck/exposed body skin
+- Film grain throughout the image, lifelike skin tone, real human appearance
 - Authentic Korean facial features (face engagement +38%, Bakhshi CHI 2014)
 - Sharp focus on subject, gentle background
-- No plastic, no airbrushing, no smoothing, no doll-like appearance, no idealized beauty filter
+- No plastic, no airbrushing, no smoothing on body/clothing, no doll-like appearance, no idealized beauty filter
+`.trim();
+
+/**
+ * Face-swap 친화 룰 — Stage 3 face-swap이 잘 처리하도록 face 영역 조건 강제.
+ *
+ * 배경·기저: 백엔드 파이프라인은 FLUX-LoRA로 scene을 생성한 뒤 fal-ai/face-swap
+ * (InsightFace 계열 landmark 기반)으로 catalog 얼굴을 합성한다. landmark 검출이
+ * 잘 되려면 face가 정면에 가깝고 균일 조명이어야 하며, 표정·각도가 너무 극단적
+ * 이면 swap 경계가 부자연스러워진다. 또한 catalog 모델이 대부분 무수염·매끈한
+ * 피부이기 때문에 scene face에 수염·강한 질감을 주면 swap 후 catalog face와
+ * 텍스처 mismatch가 보인다 — face 영역만 단순하게 유지하는 게 안전하다.
+ *
+ * 모델링/test_faceswap_compare.py 에서 fal-ai/face-swap이 fal.ai의 다른 face-swap
+ * 후보(easel-ai/advanced-face-swap deprecated, fal-ai/hy-wu-edit 미작동) 대비
+ * 유일하게 정상 작동하는 것을 확인함. 따라서 face-swap을 교체하지 않고 입력
+ * scene을 face-swap-friendly하게 만드는 방향으로 결정.
+ */
+export const FACE_PRESENTATION_RULES = `
+FACE PRESENTATION (face-swap stage 3 호환 필수):
+- Model facing FORWARD toward camera (frontal or near-frontal — max 20° head turn)
+- Even balanced lighting on the face region (no chiaroscuro / no half-shadow on face)
+- Clear unobstructed face — no hair covering eyes, no hand on face, no glasses glare,
+  no microphone/object covering nose/mouth
+- Eyes open and directed at or near the camera lens
+- Neutral or gentle closed-mouth expression — avoid wide-open mouth, extreme laugh,
+  shout, kiss, tongue out
+- FACE AREA ONLY: clean smooth skin, NO stubble, NO heavy beard, NO heavy makeup,
+  NO heavy texture on face (텍스처는 손·목·노출 피부에는 OK이지만 face는 매끈하게)
+- (이 face 영역은 stage 3에서 catalog 모델의 얼굴로 교체되므로, scene의 face는
+  단순한 placeholder처럼 유지해야 swap 결과가 자연스러움)
 `.trim();

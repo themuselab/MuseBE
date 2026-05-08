@@ -11,7 +11,12 @@
  * - Pieters & Wedel (2004) Journal of Marketing 68(2), p.43 — image size attention
  */
 import { getDesignCode } from "./industryDesignCode";
-import { ACADEMIC_LAYOUT_RULES, QUALITY_RULES, TEXT_FREE_RULES } from "./promptTemplates";
+import {
+  ACADEMIC_LAYOUT_RULES,
+  FACE_PRESENTATION_RULES,
+  QUALITY_RULES,
+  TEXT_FREE_RULES,
+} from "./promptTemplates";
 
 export type AspectRatio = "9:16" | "1:1" | "16:9";
 
@@ -56,6 +61,8 @@ Korean ${input.industry} advertisement campaign — premium professional ad agen
 ═══ MODEL ═══
 Featuring authentic ${persona}, natural Korean facial features.
 Face must be clearly visible (Bakhshi CHI 2014 — engagement +38%).
+
+${FACE_PRESENTATION_RULES}
 
 ═══ LAYOUT (Strict Zone Allocation) ═══
 ${code.layout}
