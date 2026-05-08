@@ -85,7 +85,7 @@ paths:
     post:
       tags: [Ads]
       summary: 광고 이미지 생성 작업 등록 (비동기)
-      description: 사전에 POST /ads/products로 업로드한 productImagePath를 함께 전달
+      description: 사전에 POST /ads/products로 업로드한 productImagePath를 함께 전달 (선택)
       security:
         - bearerAuth: []
       requestBody:
@@ -94,11 +94,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [catalogModelId, prompt, productImagePath]
+              required: [catalogModelId, prompt]
               properties:
                 catalogModelId: { type: string }
                 productImagePath:
                   type: string
+                  description: 선택 사항. 첨부 시 GPT-image-1로 인물에 합성, 미첨부 시 prompt/item 기반 scene 생성만 수행
                   example: /uploads/products/{userId}/abc.png
                 prompt: { type: string }
                 headline: { type: string }
