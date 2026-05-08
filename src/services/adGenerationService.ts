@@ -286,6 +286,18 @@ const processAdGenerationJob = async (
       intermediateUrls: intermediate,
     });
 
+    // textOverlays 먼저 빌드 — 저장 색과 PIL 합성 색의 단일 출처.
+    const textOverlays = adCopyToOverlays({
+      headline: finalHeadline ?? "",
+      subhead: finalSubhead ?? "",
+      cta: finalCta ?? "",
+      tone: adCopy.tone,
+    });
+    const headlineColor =
+      textOverlays.find((o) => o.id === "headline")?.color ?? "#FFFFFF";
+    const subheadColor =
+      textOverlays.find((o) => o.id === "subhead")?.color ?? headlineColor;
+
     // PIL은 외부 URL fetch만 가능. swappedUrl(fal.media) 우선, 없으면 baseImageUrl(fal.storage) fallback.
     const pilBaseUrl = swappedUrl ?? baseImageUrl;
     let finalBuffer: Buffer;
@@ -295,6 +307,8 @@ const processAdGenerationJob = async (
           baseUrl: pilBaseUrl,
           headline: finalHeadline,
           subhead: composePilSubhead(finalSubhead, finalCta),
+          headlineColor,
+          subheadColor,
           // logo 생략 — 사용자가 입력한 카피·CTA 외에 브랜드 워터마크 추가하지 않음.
           template: "instagram_square",
         });
@@ -310,13 +324,6 @@ const processAdGenerationJob = async (
 
     const resultRel = path.join("ads", job.userId, `${job.id}.png`);
     const resultUrl = await saveBuffer(resultRel, finalBuffer);
-
-    const textOverlays = adCopyToOverlays({
-      headline: finalHeadline ?? "",
-      subhead: finalSubhead ?? "",
-      cta: finalCta ?? "",
-      tone: adCopy.tone,
-    });
 
     await jobRepository.updateJob(jobId, {
       status: "completed",

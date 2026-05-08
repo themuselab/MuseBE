@@ -6,8 +6,49 @@ import { adErrors } from "../errors/adErrors";
 import { getAdGenerationQueue } from "../lib/queue";
 import { overlayKoreanText } from "../lib/pilClient";
 import { saveBuffer, getAbsolutePath } from "../lib/localStorage";
-import { adCopyToOverlays } from "../lib/openai";
+import { DEFAULT_OVERLAY_LAYOUT } from "../lib/openai";
 import type { Job, Prisma } from "@prisma/client";
+
+type StoredOverlay = {
+  id: string;
+  content: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  fontWeight: "normal" | "bold";
+  color: string;
+  textAlign: "left" | "center" | "right";
+};
+
+const isStoredOverlay = (v: unknown): v is StoredOverlay => {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.content === "string" &&
+    typeof o.color === "string" &&
+    typeof o.x === "number" &&
+    typeof o.y === "number" &&
+    typeof o.width === "number" &&
+    typeof o.height === "number" &&
+    typeof o.fontSize === "number" &&
+    (o.fontWeight === "normal" || o.fontWeight === "bold") &&
+    (o.textAlign === "left" || o.textAlign === "center" || o.textAlign === "right")
+  );
+};
+
+const findOverlay = (
+  arr: Prisma.JsonValue | null,
+  id: string,
+): StoredOverlay | null => {
+  if (!Array.isArray(arr)) return null;
+  for (const v of arr) {
+    if (isStoredOverlay(v) && v.id === id) return v;
+  }
+  return null;
+};
 
 type JobWithCatalog = Job & {
   catalogModel: { id: string; name: string } | null;
@@ -159,11 +200,21 @@ export const reOverlayText = async (input: ReOverlayInput) => {
     throw adErrors.validationError("재편집할 베이스 이미지가 없습니다 (재생성 필요)");
   }
 
+  // 기존 textOverlays에서 색·메타데이터 추출 — PIL과 새 textOverlays가 같은 색을 쓰도록 단일 출처.
+  const prevHeadline = findOverlay(job.textOverlays, "headline");
+  const prevSubhead = findOverlay(job.textOverlays, "subhead");
+  const prevCta = findOverlay(job.textOverlays, "cta");
+
+  const headlineColor = prevHeadline?.color ?? "#FFFFFF";
+  const subheadColor = prevSubhead?.color ?? headlineColor;
+
   // baseImageUrl은 fal.storage 외부 URL로 저장되므로 그대로 PIL에 전달.
   const overlayResult = await overlayKoreanText({
     baseUrl: job.baseImageUrl,
     headline: input.headline,
     subhead: composePilSubhead(input.subhead, input.cta),
+    headlineColor,
+    subheadColor,
     // logo 생략 — 최초 생성과 동일하게 브랜드 워터마크 미삽입.
     template: "instagram_square",
   });
@@ -176,19 +227,39 @@ export const reOverlayText = async (input: ReOverlayInput) => {
   );
   const resultUrl = await saveBuffer(resultRel, overlayResult.buffer);
 
-  // textOverlays JSON도 새 텍스트로 동기화 (다음 편집 진입 시 layer가 최신 텍스트 반영)
-  // 기존 tone은 유지 (편집은 tone을 바꾸지 않음). job.textOverlays에서 추출 시도, 실패 시 default "warm".
-  const prevOverlays = (job.textOverlays as Prisma.JsonArray | null) ?? null;
-  const prevTone = (() => {
-    if (!Array.isArray(prevOverlays)) return "warm" as const;
-    return "warm" as const;
-  })();
-  const newOverlays = adCopyToOverlays({
-    headline: input.headline,
-    subhead: input.subhead ?? "",
-    cta: input.cta ?? "",
-    tone: prevTone,
-  });
+  // 새 textOverlays 빌드 — 기존 메타데이터(색·좌표·폰트크기 등) 그대로 보존, content만 갱신.
+  // 이전에 없던 항목이 새로 들어오면 DEFAULT_OVERLAY_LAYOUT + headline 색으로 폴백.
+  const newOverlays: StoredOverlay[] = [];
+  const buildOverlay = (
+    prev: StoredOverlay | null,
+    id: "headline" | "subhead" | "cta",
+    content: string,
+  ): StoredOverlay | null => {
+    if (!content) return null;
+    if (prev) return { ...prev, content };
+    const layout = DEFAULT_OVERLAY_LAYOUT[id];
+    const fontSize = id === "headline" ? 56 : id === "cta" ? 28 : 24;
+    const fontWeight: "normal" | "bold" = id === "subhead" ? "normal" : "bold";
+    return {
+      id,
+      content,
+      x: layout.x,
+      y: layout.y,
+      width: layout.width,
+      height: layout.height,
+      fontSize,
+      fontWeight,
+      color: id === "subhead" ? subheadColor : headlineColor,
+      textAlign: layout.textAlign,
+    };
+  };
+
+  const headlineOverlay = buildOverlay(prevHeadline, "headline", input.headline);
+  if (headlineOverlay) newOverlays.push(headlineOverlay);
+  const subheadOverlay = buildOverlay(prevSubhead, "subhead", input.subhead ?? "");
+  if (subheadOverlay) newOverlays.push(subheadOverlay);
+  const ctaOverlay = buildOverlay(prevCta, "cta", input.cta ?? "");
+  if (ctaOverlay) newOverlays.push(ctaOverlay);
 
   const updated = await jobRepository.updateJob(job.id, {
     resultUrl,
