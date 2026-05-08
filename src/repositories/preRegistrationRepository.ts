@@ -5,6 +5,7 @@ type CreatePreRegistrationData = {
   phone?: string;
   privacyAgreed: boolean;
   marketingAgreed: boolean;
+  source?: string;
 };
 
 export const findByEmail = (email: string) =>
@@ -17,5 +18,6 @@ export const create = (data: CreatePreRegistrationData) =>
       phone: data.phone,
       privacyAgreed: data.privacyAgreed,
       marketingAgreed: data.marketingAgreed,
+      source: data.source ?? "signup_waitlist",
     },
   });
