@@ -28,6 +28,10 @@ paths:
                   description: 필수 — 반드시 true
                 marketingAgreed:
                   type: boolean
+                source:
+                  type: string
+                  enum: [signup_waitlist, landing_cta]
+                  description: 신청 유입 경로 (선택, 기본값 signup_waitlist)
       responses:
         '201':
           description: 사전 신청 성공

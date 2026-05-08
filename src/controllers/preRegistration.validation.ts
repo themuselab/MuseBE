@@ -12,4 +12,5 @@ export const preRegistrationSchema = z.object({
     error: "개인정보 수집 및 이용에 동의해야 합니다",
   }),
   marketingAgreed: z.boolean(),
+  source: z.enum(["signup_waitlist", "landing_cta"]).optional(),
 });
