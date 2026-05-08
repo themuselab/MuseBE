@@ -84,6 +84,7 @@ model PreRegistration {
   phone           String?
   privacyAgreed   Boolean  @default(true)
   marketingAgreed Boolean  @default(false)
+  source          String   @default("signup_waitlist")
   createdAt       DateTime @default(now())
 
   @@index([email])
