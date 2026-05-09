@@ -1,5 +1,5 @@
 /**
- * 업종별 광고 디자인 코드 — v3 (zone-based + 모델 통일 + palette 학술 근거)
+ * 업종별 광고 디자인 코드 — v4 (zone + palette + expression + background + face proportion)
  *
  * AI 측 `ai/src/adgen/industry_design_code.py` 와 1:1 동기화.
  * Python 원본의 dict[str, dict]를 TS로 그대로 옮긴 형태.
@@ -24,6 +24,31 @@
  * 12. Aslam (2006) J. Marketing Comm 12 — 한국·동아시아 색상 의미
  *     (흰색=청결/순수, 빨강=축제/행운, 파랑=신뢰, gold=권위)
  *
+ * ─── 학술 근거 (expression — expressionGuide 필드) ───
+ * 13. Essiz (2025) Psychology & Marketing — 럭셔리 광고에서 강한 미소 < 중립
+ *     (competence·credibility ↑, 6 사전등록 연구)
+ * 14. Peace, Miles & Johnston (2006) — Duchenne smile(눈 주름) → 진정성·관대함 ↑
+ * 15. Wang et al. (2017) E-Commerce Research — Duchenne smile 저강도가 attention·
+ *     purchase intention 가장 높음 (eye-tracking)
+ *
+ * ─── 학술 근거 (background — backgroundContext 필드) ───
+ * 16. Mandel & Johnson (2002) JCR 29(2) — 컨텍스추얼 배경 priming이 product
+ *     preference에 영향 (자동차 사이트 dollar/fire 배경 → 가격/안전 priming)
+ * 17. Lee, Frederick & Ariely (2006) Psych Science — contextual revelation
+ *
+ * ─── 학술 근거 (face proportion — faceProportion 필드) ───
+ * 18. Archer et al. (1983) Face-ism Index — face/body 비율 ↑ → 지능·야심·진지함
+ *     perception ↑; 비율 ↓ → 신체·라이프스타일 강조
+ * 19. Sundar (2008) J of Adv — full body=lifestyle/aspirational, close-up=emotional
+ * 20. Septianto et al. (2024) Tourism Mgmt — close-up=rational, long-shot=emotional
+ * 21. D'Alessandro & Chitty (2011) — 패션 광고는 모델 body shape이 brand attitude 핵심
+ *
+ * v3 → v4 변경:
+ *   - DesignCode에 expressionGuide·backgroundContext·faceProportion 3 필드 추가
+ *   - 36 업종 전수 학술 매핑 (Essiz 2025 / Mandel 2002 / Archer 1983 / Sundar 2008)
+ *   - 정장 등 럭셔리 광고에서 모델 표정 어색·배경이 단색만·얼굴 너무 큼 production
+ *     보고에 대한 학술 근거 기반 해법.
+ *
  * v2 → v3 변경:
  *   - DesignCode에 paletteRationale 필드 추가 (36 업종 전수 학술 매핑)
  *   - sand accent(#C4A57B) 제거 — Koda LoRA·warm prompt 결합 시 오렌지로 워밍
@@ -42,6 +67,9 @@ export type DesignCode = {
   typography: string;
   palette: string[];
   paletteRationale: string;     // palette/color 학술 근거 (Labrecque, Hagtvedt 등)
+  expressionGuide: string;      // 표정 학술 근거 (Essiz 2025, Peace 2006, Wang 2017)
+  backgroundContext: string;    // 컨텍스추얼 배경 (Mandel & Johnson 2002)
+  faceProportion: string;       // shot type + face % (Archer 1983, Sundar 2008)
   imageStyle: string;
   mood: string;
   examples: string;
@@ -59,6 +87,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑=competence/trust. " +
       "Bottomley & Doyle (2006): 금융=functional 카테고리, blue/black 권장. " +
       "Hagtvedt & Brakus (2009): 저채도→premium 지각.",
+    expressionGuide:
+      "Essiz 2025: 럭셔리·고관여 함수 → 중립 직시 표정 (직접 미소보다 competence·credibility ↑). " +
+      "Wang 2017: 약한 closed-mouth 미소까지는 허용 — 강한 미소는 신뢰성 저하.",
+    backgroundContext:
+      "Mandel & Johnson 2002 priming: 금융 컨텍스트는 modern office / financial district / clean glass partition. " +
+      "Blurred shallow DoF로 subject 강조 (Pieters 65% 룰).",
+    faceProportion:
+      "Sundar 2008 long-shot=emotional / closeup=rational 중 금융=rational → 3/4 portrait, face 22~28% of frame. " +
+      "Archer 1983 face-ism: 전문성 perception 위해 face prominence 중상.",
     modelPersona: "trustworthy professional 30~40s in business attire",
     appeal: "rational",
     expression: "direct (numbers, data, facts)",
@@ -84,6 +121,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑/초록=trust/health. " +
       "Aslam (2006): 한국 흰색=청결·순수. " +
       "Bottomley & Doyle (2006): functional 카테고리, blue/white 권장.",
+    expressionGuide:
+      "Peace 2006 Duchenne smile (눈 주름) → trust + reassurance. " +
+      "Essiz 2025: 너무 환한 미소는 의료 신뢰성 저하; 부드러운 closed-mouth Duchenne 권장.",
+    backgroundContext:
+      "Mandel & Johnson 2002: 의료 컨텍스트 = blurred clean clinic patient room / soft natural light corridor. " +
+      "Pale blue·white palette 톤 유지.",
+    faceProportion:
+      "3/4 trustworthy portrait, face 22~28% — Archer 1983 직업적 신뢰성 perception 적정.",
     modelPersona: "trustworthy comforting 30~50s in medical white coat",
     appeal: "rational + reassuring",
     expression: "direct + warm",
@@ -109,6 +154,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 검정=sophistication/authority brand personality. " +
       "Aslam (2006): gold=prestige(고대 한자권 황금=권위). " +
       "Hagtvedt & Brakus (2009): 저채도+검정=premium 권위.",
+    expressionGuide:
+      "Essiz 2025 럭셔리·authority 카테고리: neutral expression > smile. " +
+      "Peace 2006: subtle Duchenne 가능하나 entry는 authoritative neutral.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred law office / formal interior with bookshelf / dark wood paneling. " +
+      "검정·gold 톤 유지.",
+    faceProportion:
+      "Archer 1983 high face-ism → authority perception ↑. " +
+      "Portrait 3/4, face 28~35%.",
     modelPersona: "authoritative confident 40~50s in formal suit",
     appeal: "rational",
     expression: "direct (authority signals)",
@@ -133,6 +187,16 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑=competence + innovation 연상. " +
       "Bottomley & Doyle (2006): tech=functional, blue/black 권장. " +
       "Mehta & Zhu (2009): 파랑=creative cognition 활성화.",
+    expressionGuide:
+      "Septianto 2024: 기능재 광고 → rational appeal. " +
+      "Confident neutral / 약한 closed-mouth smile. " +
+      "Essiz 2025 럭셔리 tech: neutral 효과적.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred minimal tech studio / sleek device backdrop / subtle gradient surface. " +
+      "Black·white·cyan 톤 유지.",
+    faceProportion:
+      "Sundar 2008: 제품 demonstrative → medium with product. " +
+      "Face 18~24% (제품과 균형).",
     modelPersona: "professional sophisticated 20~30s tech-savvy demeanor",
     appeal: "rational + future-tech",
     expression: "direct + visual demos",
@@ -156,6 +220,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 저채도 검정/silver=luxury·premium. " +
       "Bottomley & Doyle (2006): 자동차=고관여 functional, 무채색 권장. " +
       "Labrecque & Milne (2012): 검정=sophistication·excitement 균형.",
+    expressionGuide:
+      "Essiz 2025 럭셔리 카테고리: aspirational neutral 또는 약한 closed-mouth. " +
+      "Wang 2017: 강한 미소 비추천.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred showroom or scenic golden-hour road / cinematic landscape. " +
+      "검정·silver 톤 유지.",
+    faceProportion:
+      "Sundar 2008 wide cinematic = aspirational lifestyle. " +
+      "Face 8~12% (차량 hero).",
     modelPersona: "confident sophisticated 30~40s by vehicle",
     appeal: "rational + lifestyle aspiration",
     expression: "direct + cinematic",
@@ -182,6 +255,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 저채도→premium·luxury 지각 (sand accent 워밍 드리프트로 navy로 교체). " +
       "Labrecque & Milne (2012): 검정/navy=sophistication brand personality. " +
       "Singh (2006): 첫 90초 60~90% 색상 결정 — 명확한 monochrome 선호.",
+    expressionGuide:
+      "Essiz 2025: 패션 럭셔리 카테고리 → neutral editorial expression이 ad credibility 가장 높음. " +
+      "직접 미소 < 절제된 closed-mouth + direct gaze.",
+    backgroundContext:
+      "Mandel & Johnson 2002 + Pieters 2004: blurred urban architecture / minimal gallery wall / atelier corner. " +
+      "Cream·검정·navy palette 톤 유지, shallow DoF.",
+    faceProportion:
+      "Sundar 2008 + D'Alessandro 2011: 패션은 outfit hero → full body or 3/4 body, face 8~15%. " +
+      "Archer 1983 low face-ism = body·lifestyle 강조.",
     modelPersona: "sophisticated editorial 20~30s wearing the seasonal outfit",
     appeal: "emotional + aspirational",
     expression: "metaphorical (mood, lifestyle)",
@@ -205,6 +287,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 저채도→premium 지각 (sand accent 워밍 드리프트로 navy로 교체). " +
       "Labrecque & Milne (2012): 검정/navy=sophistication. " +
       "Bottomley & Doyle (2006): 패션=sensory-social, but premium positioning은 muted neutral.",
+    expressionGuide:
+      "Essiz 2025 럭셔리 패션: neutral editorial. " +
+      "Direct gaze + subtle confidence.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred boutique interior / fashion atelier / clean architectural backdrop. " +
+      "Cream·검정·navy 유지.",
+    faceProportion:
+      "패션 = outfit hero (Sundar 2008). " +
+      "Full body or 3/4, face 8~15%.",
     modelPersona: "sophisticated editorial 20~30s wearing seasonal outfit",
     appeal: "emotional",
     expression: "metaphorical",
@@ -228,6 +319,16 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): pearl/blush 저채도=luxury 지각. " +
       "Aslam (2006): gold=prestige 동아시아 일관. " +
       "Labrecque & Milne (2012): 분홍=warmth/sincerity.",
+    expressionGuide:
+      "Wang 2017: 뷰티 e-commerce → 약한 Duchenne smile이 attention·purchase intention ↑. " +
+      "Peace 2006: serene Duchenne (눈 주름 + 가벼운 closed-mouth).",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred bath/spa or natural window light / soft pastel surface. " +
+      "Pearl·blush·gold palette 톤 유지.",
+    faceProportion:
+      "Archer 1983 face-ism: 뷰티는 face=hero → close-up beauty. " +
+      "Face 30~45% of frame. " +
+      "Bakhshi 2014 face engagement +38% 극대화.",
     modelPersona: "fresh dewy 20s OR mature elegant 30~40s, beauty close-up",
     appeal: "emotional + sensorial",
     expression: "abstract (texture, glow, sensation)",
@@ -252,6 +353,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bottomley & Doyle (2006): sensory-social 카테고리, warm pastel. " +
       "Hagtvedt & Brakus (2009): 저채도→luxury. " +
       "Labrecque & Milne (2012): 분홍/gold=sincerity/prestige.",
+    expressionGuide:
+      "Wang 2017 + Peace 2006: 약한 Duchenne smile, serene 분위기.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred natural light window / soft pastel ingredient setting. " +
+      "Pearl/blush 유지.",
+    faceProportion:
+      "Archer 1983: face=hero, close-up 30~45%.",
     modelPersona: "fresh dewy or mature elegant beauty close-up",
     appeal: "emotional + sensorial",
     expression: "abstract",
@@ -275,6 +383,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
     paletteRationale:
       "Hagtvedt & Brakus (2009): 채도 대비(주류 muted + vivid 액센트)=incongruity → 'creative' 지각. " +
       "Labrecque & Milne (2012): vivid 액센트=excitement·기억점 강화.",
+    expressionGuide:
+      "Peace 2006: 표현적 thoughtful expression 가능 — 직시 + subtle smile or contemplative neutral. " +
+      "장르에 따라 expressive 허용.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred gallery wall / studio with art element / creative space.",
+    faceProportion:
+      "Sundar 2008 medium with creative element. " +
+      "Face 20~30%.",
     modelPersona: "creative sophisticated 20~40s, artist persona",
     appeal: "emotional + creative",
     expression: "metaphorical, artistic",
@@ -302,6 +418,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Mehta & Zhu (2009): 따뜻한 톤=focus/attention 강화 (학습 환경). " +
       "Labrecque & Milne (2012): 노랑/오렌지=sincerity·ruggedness, 친근감 형성. " +
       "Bagchi & Cheema (2013): orange=action(achievement) 신호.",
+    expressionGuide:
+      "Peace 2006 warm Duchenne smile → caring teacher 인상. " +
+      "Wang 2017: 약~중간 강도가 친근감·신뢰 균형.",
+    backgroundContext:
+      "Mandel & Johnson 2002 priming: blurred classroom / library / warm study space. " +
+      "Warm cream 톤.",
+    faceProportion:
+      "Sundar 2008 medium engagement. " +
+      "Face 22~30%.",
     modelPersona: "approachable trustworthy teacher 30~40s with student",
     appeal: "rational + warm",
     expression: "direct (results, testimonials)",
@@ -325,6 +450,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 노랑/갈=sincerity, 초록=peace. " +
       "Mehta & Zhu (2009): warm earth tones=community/warmth 연상. " +
       "Bottomley & Doyle (2006): 비영리=sensory-social, warm 권장.",
+    expressionGuide:
+      "Peace 2006: warm authentic Duchenne smile (눈 주름). " +
+      "진정성 perception 핵심.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred community center / warm hall / candid documentary setting.",
+    faceProportion:
+      "Sundar 2008 medium with warmth. " +
+      "Face 25~32%.",
     modelPersona: "warm comforting all ages, caregiver or community member",
     appeal: "emotional + community",
     expression: "narrative, testimonial",
@@ -352,6 +485,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Singh (2006): 따뜻한 톤(빨강·노랑·갈)=식욕 자극 (식음료 광고 기본). " +
       "Mehta & Zhu (2009): 빨강=주의 환기, 따뜻함=appetite 활성화. " +
       "Bottomley & Doyle (2006): 식음료=sensory-social, warm earth 권장.",
+    expressionGuide:
+      "Peace 2006 + Wang 2017: warm Duchenne smile (open-mouth 가능) — appetite + warmth 함께.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred restaurant kitchen / dining area / warm golden hour. " +
+      "Cream·caramel 유지.",
+    faceProportion:
+      "Sundar 2008: food=hero, model=context. " +
+      "Medium with food, face 18~24%.",
     modelPersona: "friendly approachable chef/server 20~40s with food",
     appeal: "emotional + sensorial",
     expression: "appetizing visual",
@@ -376,6 +517,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Singh (2006): 따뜻한 cream/caramel=appetite + comfort. " +
       "Labrecque & Milne (2012): 갈색=ruggedness/sincerity, 카페 lifestyle 정체성. " +
       "Mehta & Zhu (2009): warm tones=focus(독서·작업 환경).",
+    expressionGuide:
+      "Peace 2006 warm Duchenne smile (눈 주름) — 친근함·따뜻함 lifestyle.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred warm cafe interior with bokeh window light / wooden surface.",
+    faceProportion:
+      "Sundar 2008 lifestyle moment. " +
+      "Medium with cup, face 18~24%.",
     modelPersona: "friendly warm 20~30s holding coffee cup, gentle smile",
     appeal: "emotional",
     expression: "lifestyle moment",
@@ -399,6 +547,15 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 검정+gold=hedonic premium. " +
       "Labrecque & Milne (2012): 빨강(wine)=excitement·passion, gold=sophistication. " +
       "Bottomley & Doyle (2006): 주류=sensory-social hedonic, warm/dark 조합.",
+    expressionGuide:
+      "Peace 2006: hedonic confident smile 또는 사회적 toasting 미소. " +
+      "Wang 2017: 약~중 강도가 social·premium 균형.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred moody bar with bokeh / dim warm lighting. " +
+      "검정·gold·wine 유지.",
+    faceProportion:
+      "Sundar 2008 mood with drink. " +
+      "Face 20~28%.",
     modelPersona: "energetic sociable 20~30s in social drinking moment",
     appeal: "emotional + social",
     expression: "abstract (mood, party, atmosphere)",
@@ -422,6 +579,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bagchi & Cheema (2013): orange/yellow=action·urgency, 여행 부킹 행동 자극. " +
       "Mehta & Zhu (2009): 따뜻한 톤=energy/aspiration. " +
       "Labrecque & Milne (2012): 노랑=sincerity·excitement.",
+    expressionGuide:
+      "Peace 2006 + Wang 2017: energetic open Duchenne smile — 활기·aspiration 직접 노출.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred destination scenery / scenic landscape / sun-drenched setting.",
+    faceProportion:
+      "Sundar 2008 wide with destination = aspirational lifestyle. " +
+      "Face 12~18%.",
     modelPersona: "energetic active 20~40s in destination context",
     appeal: "emotional + aspirational",
     expression: "lifestyle moments, scenery",
@@ -445,6 +609,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bagchi & Cheema (2013): 빨강=action/urgency, 운동 동기 자극. " +
       "Mehta & Zhu (2009): 빨강=detail focus(자세·기록 중심). " +
       "Hagtvedt & Brakus (2009): 검정+빨강=premium fitness.",
+    expressionGuide:
+      "Peace 2006: determined confident expression — 강한 미소보다 focus·intensity. " +
+      "Essiz 2025: premium fitness = neutral·intense.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred gym or outdoor athletic field / dynamic environment.",
+    faceProportion:
+      "Sundar 2008 dynamic action. " +
+      "Face 18~24% (motion·body 강조).",
     modelPersona: "athletic energetic 20~30s in motion",
     appeal: "emotional + performance",
     expression: "direct (results) + abstract (motivation)",
@@ -472,6 +644,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑/초록=trust/health 일관. " +
       "Aslam (2006): 한국 흰색=청결, 의료 표준. " +
       "Bottomley & Doyle (2006): 의료=functional·trust, blue/white 권장.",
+    expressionGuide:
+      "Peace 2006 reassuring soft Duchenne smile (warm + competent 균형). " +
+      "Essiz 2025: 의료 = trust > excitement, 강한 미소는 역효과.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred clinical white or warm patient room / soft natural light.",
+    faceProportion:
+      "Trustworthy 3/4 portrait, face 25~32%.",
     modelPersona: "trustworthy doctor 30~40s in white coat, gentle smile",
     appeal: "rational + reassuring",
     expression: "direct + warm",
@@ -497,6 +676,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 저채도→premium·sophistication (sand→charcoal로 교체해 워밍 드리프트 차단). " +
       "Labrecque & Milne (2012): 검정/charcoal=sophistication. " +
       "Bottomley & Doyle (2006): 미용=sensory-social, but premium 살롱은 muted neutral.",
+    expressionGuide:
+      "Essiz 2025 럭셔리 살롱: editorial neutral 또는 약한 confident closed-mouth. " +
+      "Wang 2017: 약한 미소.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred chic salon backdrop / minimal mirror reflection / studio.",
+    faceProportion:
+      "Archer 1983: 헤어 효과 강조 → 얼굴 close-up·portrait beauty. " +
+      "Face 30~40% (hair=hero).",
     modelPersona: "sophisticated stylish 20~40s with elegant haircut",
     appeal: "emotional + transformation",
     expression: "before-after, lifestyle",
@@ -520,6 +707,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 분홍=warmth/sincerity, 초록=peace/nature. " +
       "Bottomley & Doyle (2006): 꽃=sensory-social, soft pastel 권장. " +
       "Hagtvedt & Brakus (2009): 저채도 pastel=premium 플로리스트 톤.",
+    expressionGuide:
+      "Peace 2006 gentle warm smile — 부드러움·romance.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred botanical interior with flowers / soft natural light / petals texture.",
+    faceProportion:
+      "Sundar 2008 medium with botanical detail. " +
+      "Face 22~28%.",
     modelPersona: "warm gentle 20~40s florist or customer holding flowers",
     appeal: "emotional + sensory",
     expression: "abstract beauty",
@@ -543,6 +737,14 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): navy=competence, gold=prestige. " +
       "Hagtvedt & Brakus (2009): 저채도+gold=premium 부동산 표준. " +
       "Aslam (2006): 한국 gold=권위/안정.",
+    expressionGuide:
+      "Essiz 2025 + Peace 2006: trustworthy neutral with 약한 confident closed-mouth. " +
+      "Premium 부동산 = competence·credibility 우선.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred premium apartment exterior / modern lobby / architectural detail.",
+    faceProportion:
+      "Sundar 2008 medium with property. " +
+      "Face 18~25%.",
     modelPersona: "trustworthy realtor 40~50s in suit at property",
     appeal: "rational + aspiration",
     expression: "direct (specs, location)",
@@ -566,6 +768,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Mehta & Zhu (2009): 오렌지=주의/action, 정비 신호. " +
       "Bagchi & Cheema (2013): orange=urgency 표시. " +
       "Labrecque & Milne (2012): 검정=ruggedness/dependable.",
+    expressionGuide:
+      "Peace 2006 dependable warm Duchenne smile — 친근·신뢰 동시.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred workshop with tools / garage interior / hands-on activity.",
+    faceProportion:
+      "Sundar 2008 medium workshop. " +
+      "Face 22~28%.",
     modelPersona: "competent friendly mechanic 30~40s in workshop",
     appeal: "rational + trust",
     expression: "direct (capability)",
@@ -593,6 +802,12 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): navy/blue=competence/trust. " +
       "Bottomley & Doyle (2006): B2B 컨설팅=functional, blue/black 권장. " +
       "Hagtvedt & Brakus (2009): 저채도=premium B2B.",
+    expressionGuide:
+      "Essiz 2025 B2B competence: professional neutral 또는 약한 confident closed-mouth.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred modern office / boardroom / data viz wall.",
+    faceProportion:
+      "Trustworthy 3/4, face 25~32% — Archer 1983 authority perception.",
     modelPersona: "professional executive 30~40s in office attire",
     appeal: "rational",
     expression: "direct (efficiency, ROI)",
@@ -616,6 +831,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Mehta & Zhu (2009): 노랑(safety)=주의 환기, 작업 표준. " +
       "Labrecque & Milne (2012): 검정=ruggedness/power. " +
       "Aslam (2006): 한국 노랑(안전모)=신뢰·표준.",
+    expressionGuide:
+      "Peace 2006: trustworthy confident — 약한 Duchenne 또는 dependable neutral.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred construction site / architectural scale / safety site.",
+    faceProportion:
+      "Sundar 2008 wide with site/scale. " +
+      "Face 15~22%.",
     modelPersona: "rugged competent foreman 30~50s in safety gear",
     appeal: "rational + reliability",
     expression: "direct (capability, scale)",
@@ -639,6 +861,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑=competence + 정밀. " +
       "Bottomley & Doyle (2006): 산업재 functional=blue/black. " +
       "Hagtvedt & Brakus (2009): 저채도 industrial=precision 신뢰.",
+    expressionGuide:
+      "Essiz 2025 industrial precision: confident neutral.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred factory floor / industrial setting / precision equipment.",
+    faceProportion:
+      "Sundar 2008 medium with product. " +
+      "Face 20~26%.",
     modelPersona: "engineer technical 30~40s with product",
     appeal: "rational",
     expression: "direct (specs, performance)",
@@ -662,6 +891,12 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑=competence + scientific trust. " +
       "Aslam (2006): 한국 흰색=sterile/연구 표준. " +
       "Bottomley & Doyle (2006): 과학·바이오=functional, white/blue 표준.",
+    expressionGuide:
+      "Essiz 2025 scientific competence: neutral focused expression.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred lab setting / clean equipment / molecular accents.",
+    faceProportion:
+      "Trustworthy medium, face 22~28%.",
     modelPersona: "scientist researcher 30~40s in lab coat",
     appeal: "rational + scientific",
     expression: "direct (research, efficacy)",
@@ -685,6 +920,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 초록=ruggedness/peace + sustainability 연상. " +
       "Aslam (2006): 한국 초록=자연/건강. " +
       "Hagtvedt & Brakus (2009): muted 초록=premium ESG.",
+    expressionGuide:
+      "Peace 2006: optimistic warm smile — sustainability·미래지향 긍정.",
+    backgroundContext:
+      "Mandel & Johnson 2002 + Aslam 한국: blurred natural setting with green elements / outdoor eco.",
+    faceProportion:
+      "Sundar 2008 medium with eco. " +
+      "Face 22~28%.",
     modelPersona: "responsible competent 30~40s in eco-context",
     appeal: "rational + ethical",
     expression: "direct + visionary",
@@ -708,6 +950,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 노랑/갈=sincerity·craftsmanship. " +
       "Bottomley & Doyle (2006): 공예=sensory-social, warm wood/paper. " +
       "Hagtvedt & Brakus (2009): muted earth=artisanal premium.",
+    expressionGuide:
+      "Peace 2006: thoughtful artisan smile — 진정성·craftsmanship.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred warm workshop / material textures / wood paper backdrop.",
+    faceProportion:
+      "Sundar 2008 medium hands-on. " +
+      "Face 20~26%.",
     modelPersona: "artisan thoughtful 30~50s in workshop",
     appeal: "emotional + craftsmanship",
     expression: "abstract (texture, detail)",
@@ -731,6 +980,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bagchi & Cheema (2013): orange=urgency/delivery action. " +
       "Mehta & Zhu (2009): 빨강·오렌지=주의/속도. " +
       "Labrecque & Milne (2012): 검정+orange=dependable + active.",
+    expressionGuide:
+      "Peace 2006 dependable confident — 약한 closed-mouth smile 또는 neutral.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred urban street with vehicle / dawn delivery / route context.",
+    faceProportion:
+      "Sundar 2008 medium with vehicle. " +
+      "Face 22~28%.",
     modelPersona: "dependable approachable driver/courier 30~40s in uniform",
     appeal: "rational + speed",
     expression: "direct (delivery, time)",
@@ -754,6 +1010,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Aslam (2006): 한국 흰색=청결 표준. " +
       "Labrecque & Milne (2012): 파랑=trust, navy=competence. " +
       "Bottomley & Doyle (2006): 시설 서비스=functional, white/blue.",
+    expressionGuide:
+      "Peace 2006 friendly trustworthy — 부드러운 Duchenne smile (warm + reliable).",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred spotless interior / clean facility / dawn light.",
+    faceProportion:
+      "Sundar 2008 medium portrait. " +
+      "Face 25~30%.",
     modelPersona: "attentive professional 30~50s in uniform",
     appeal: "rational + reliability",
     expression: "direct (cleanliness, security)",
@@ -777,6 +1040,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 노랑/갈=sincerity, 초록=ruggedness/nature. " +
       "Bottomley & Doyle (2006): 식품·농산=sensory-social, warm earth + green. " +
       "Mehta & Zhu (2009): warm tones=appetite + authenticity.",
+    expressionGuide:
+      "Peace 2006 warm authentic smile — 진정성·farm-to-table 신뢰.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred farm / golden hour field / harvest setting.",
+    faceProportion:
+      "Sundar 2008 medium with produce. " +
+      "Face 22~28%.",
     modelPersona: "earthy genuine farmer/producer 40~60s in farm setting",
     appeal: "emotional + authenticity",
     expression: "narrative + lifestyle",
@@ -800,6 +1070,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bagchi & Cheema (2013): 빨강=urgency, 가격 행동 자극(SALE 표현). " +
       "Mehta & Zhu (2009): 빨강·노랑=detail focus(가격표·할인표). " +
       "Singh (2006): 빨강·노랑=충동구매 자극 첫 90초.",
+    expressionGuide:
+      "Wang 2017 + Peace 2006: lively friendly smile — 친근·활발 (open Duchenne 가능).",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred bright retail aisle / abundant product display.",
+    faceProportion:
+      "Sundar 2008 medium with products. " +
+      "Face 22~28%.",
     modelPersona: "energetic friendly staff 20~40s in retail",
     appeal: "emotional + bargain",
     expression: "direct + lively",
@@ -823,6 +1100,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Hagtvedt & Brakus (2009): 저채도 검정=authority + premium. " +
       "Labrecque & Milne (2012): 검정=sophistication, gold=prestige. " +
       "Aslam (2006): 한국 gold=전문가 위상.",
+    expressionGuide:
+      "Essiz 2025 전문직 authority: authoritative neutral / 약한 confident closed-mouth.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred formal office / dignified interior / document setting.",
+    faceProportion:
+      "Archer 1983 high face-ism → authority. " +
+      "Portrait 3/4, face 28~35%.",
     modelPersona: "authoritative confident 40~60s in formal suit",
     appeal: "rational",
     expression: "direct (expertise, results)",
@@ -846,6 +1130,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bottomley & Doyle (2006): 디저트=sensory-social hedonic, warm pastel. " +
       "Singh (2006): warm 분홍·캐러멜=appetite + 달콤함 연상. " +
       "Mehta & Zhu (2009): warm tones=식욕·따뜻함.",
+    expressionGuide:
+      "Peace 2006 + Wang 2017: warm sweet Duchenne smile — 따뜻함·indulgence.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred warm bakery with pastries / golden bakery light / steam.",
+    faceProportion:
+      "Sundar 2008 medium with pastry. " +
+      "Face 20~26%.",
     modelPersona: "warm cheerful baker/customer 20~40s with pastries",
     appeal: "emotional + sensorial",
     expression: "abstract (texture, sweetness)",
@@ -870,6 +1161,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Bagchi & Cheema (2013): 빨강·노랑=urgency/즉시 구매. " +
       "Singh (2006): 첫 90초 색상 결정—빨강·노랑=즉각성. " +
       "Mehta & Zhu (2009): 빨강·노랑=주의 환기 attention 광고.",
+    expressionGuide:
+      "Peace 2006: friendly approachable smile — daily relatability.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred bright store interior / casual everyday setting.",
+    faceProportion:
+      "Sundar 2008 medium relatable. " +
+      "Face 22~28%.",
     modelPersona: "everyday relatable 20~30s in store setting",
     appeal: "emotional + convenience",
     expression: "direct + lively",
@@ -897,6 +1195,13 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
       "Labrecque & Milne (2012): 파랑=competence/trust 안전한 fallback. " +
       "Hagtvedt & Brakus (2009): 무채색+저채도 accent=neutral premium. " +
       "Bottomley & Doyle (2006): 일반 광고 fallback=blue/black/white.",
+    expressionGuide:
+      "Peace 2006: balanced warm neutral 또는 부드러운 closed-mouth smile — 안전한 fallback.",
+    backgroundContext:
+      "Mandel & Johnson 2002: blurred neutral professional setting / clean studio.",
+    faceProportion:
+      "Sundar 2008 medium balanced. " +
+      "Face 25~30%.",
     modelPersona: "approachable warm 30~40s",
     appeal: "balanced",
     expression: "balanced",

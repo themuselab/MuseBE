@@ -8,12 +8,13 @@ ACADEMIC ZONE RULES (academic-validated, STRICT — text is overlaid post-proces
 - Subject (model + product) must NOT exceed 55% of total frame area
 - Image content max 65%, blank zones min 35%
 
-POSITIONING (CRITICAL — text overlay zones must be BLANK BACKGROUND, no subject):
+POSITIONING (CRITICAL — text overlay zones must be UNCLUTTERED, no subject):
 - Position the model/subject in the LOWER-RIGHT or CENTER-RIGHT half of the frame
-- The TOP-LEFT THIRD of the frame must be ENTIRELY BLANK clean solid background
-  (no head, no shoulders, no product, no decoration — only the backdrop color)
+- The TOP-LEFT THIRD of the frame must be UNCLUTTERED low-detail backdrop
+  (blurred contextual background OK — see BACKGROUND section — but NO model/face/
+   shoulders/product/sharp decoration/text in the top-left third)
 - Model's head/face must NOT enter the top-left third under any circumstance
-- Bottom-right 20% area: also BLANK solid background (reserved for optional CTA)
+- Bottom-right 20% area: also UNCLUTTERED low-detail (reserved for optional CTA)
 
 - Generous negative space — no edge-to-edge composition
 - Reference: Pieters & Wedel (2004) Journal of Marketing 68(2), p.43
@@ -59,29 +60,110 @@ export const QUALITY_RULES = `
 /**
  * Face-swap 친화 룰 — Stage 3 face-swap이 잘 처리하도록 face 영역 조건 강제.
  *
- * 배경·기저: 백엔드 파이프라인은 FLUX-LoRA로 scene을 생성한 뒤 fal-ai/face-swap
- * (InsightFace 계열 landmark 기반)으로 catalog 얼굴을 합성한다. landmark 검출이
- * 잘 되려면 face가 정면에 가깝고 균일 조명이어야 하며, 표정·각도가 너무 극단적
- * 이면 swap 경계가 부자연스러워진다. 또한 catalog 모델이 대부분 무수염·매끈한
- * 피부이기 때문에 scene face에 수염·강한 질감을 주면 swap 후 catalog face와
- * 텍스처 mismatch가 보인다 — face 영역만 단순하게 유지하는 게 안전하다.
- *
- * 모델링/test_faceswap_compare.py 에서 fal-ai/face-swap이 fal.ai의 다른 face-swap
- * 후보(easel-ai/advanced-face-swap deprecated, fal-ai/hy-wu-edit 미작동) 대비
- * 유일하게 정상 작동하는 것을 확인함. 따라서 face-swap을 교체하지 않고 입력
- * scene을 face-swap-friendly하게 만드는 방향으로 결정.
+ * 배경: fal-ai/face-swap(landmark 기반)이 잘 작동하려면 face가 정면 + 균일 조명 +
+ * 매끈한 표면이어야 함. 표정 자체는 EXPRESSION 섹션(expressionGuide)에서 업종별로
+ * 별도 처리하므로 여기서는 STRUCTURE만 다룬다.
  */
 export const FACE_PRESENTATION_RULES = `
-FACE PRESENTATION (face-swap stage 3 호환 필수):
+FACE PRESENTATION (face-swap stage 3 호환 — 구조 조건):
 - Model facing FORWARD toward camera (frontal or near-frontal — max 20° head turn)
 - Even balanced lighting on the face region (no chiaroscuro / no half-shadow on face)
 - Clear unobstructed face — no hair covering eyes, no hand on face, no glasses glare,
   no microphone/object covering nose/mouth
 - Eyes open and directed at or near the camera lens
-- Neutral or gentle closed-mouth expression — avoid wide-open mouth, extreme laugh,
-  shout, kiss, tongue out
+- Mouth closed or only slightly open — avoid wide-open mouth, extreme laugh, shout,
+  kiss, tongue out (표정 자체는 EXPRESSION 섹션 참고)
 - FACE AREA ONLY: clean smooth skin, NO stubble, NO heavy beard, NO heavy makeup,
   NO heavy texture on face (텍스처는 손·목·노출 피부에는 OK이지만 face는 매끈하게)
 - (이 face 영역은 stage 3에서 catalog 모델의 얼굴로 교체되므로, scene의 face는
   단순한 placeholder처럼 유지해야 swap 결과가 자연스러움)
+`.trim();
+
+/**
+ * EXPRESSION FRAMEWORK — 표정·시선 학술 근거.
+ *
+ * 광고학에서 모델 표정은 카테고리에 따라 효과가 다르다:
+ *  - Essiz (2025) Psychology & Marketing: 럭셔리 광고에서 강한 미소 < 중립 표정
+ *    (competence·credibility ↑). 6개 사전등록 연구에서 검증.
+ *  - Peace, Miles & Johnston (2006): Duchenne smile(눈 주름)이 진정성·관대함 ↑.
+ *  - Wang et al. (2017) Electronic Commerce Research: e-commerce 시선 추적 —
+ *    Duchenne smile이 저강도일 때 attention·purchase intention 가장 높음.
+ *  - Septianto et al. (Tourism Mgmt 2024): close-up=rational appeal,
+ *    long-shot=emotional appeal.
+ *
+ * 업종별 권장 표정은 industryDesignCode의 expressionGuide 필드 참고.
+ * 이 framework는 "왜 표정이 카테고리별로 다른가"의 prompt-side 명시 + 일반 룰.
+ */
+export const EXPRESSION_FRAMEWORK = `
+EXPRESSION (face-swap 후 자연스러운 표정 신호):
+- Choose expression intensity by category (see industry expressionGuide):
+  · Luxury / formal (suit·finance·법률·자동차·럭셔리 패션):
+      neutral or subtle closed-mouth smile, direct gaze (Essiz 2025)
+  · Lifestyle / warmth (cafe·food·교육·복지):
+      gentle Duchenne smile with eye crinkles (Peace 2006)
+  · Beauty / hedonic (뷰티·화장품·미용실):
+      serene soft smile or gentle confidence (Wang 2017 약한 강도)
+  · Trust / health (병원·의료·금융 일부):
+      reassuring soft Duchenne (warm + competent)
+  · Energy / sport (헬스·여행·주류):
+      determined or open Duchenne for activity
+- Always: gaze directed at or near camera lens (direct eye contact = engagement)
+- Avoid: forced grin, fake smile, exaggerated open mouth, anger, sadness
+`.trim();
+
+/**
+ * CONTEXTUAL BACKGROUND FRAMEWORK — 배경 구성 학술 근거.
+ *
+ *  - Mandel & Johnson (2002) JCR 29(2): 컨텍스추얼 배경 priming이 product preference
+ *    에 영향(자동차 사이트 배경 dollar/fire→가격/안전 priming). 단색보다 효과적.
+ *  - Lee, Frederick & Ariely (2006) Psych Science: contextual revelation이 선호 변화.
+ *  - Pieters & Wedel (2004) JoM 68(2): 단, 이미지 콘텐츠 max 65% 유지 — 배경이
+ *    subject를 압도하면 안 됨. blurred / shallow DoF가 표준 해법.
+ *  - Thematic-matched ads boost brand recall +40% (Integral Ad Science research).
+ *
+ * 업종별 권장 컨텍스트는 industryDesignCode의 backgroundContext 필드 참고.
+ * 핵심: contextual but BLURRED, palette 톤 유지, subject focal 보존.
+ */
+export const CONTEXTUAL_BACKGROUND_FRAMEWORK = `
+BACKGROUND (research-backed contextual priming, NOT flat color):
+- Use a contextual environment matching the product use case (industry backgroundContext)
+- ALWAYS render the background with shallow depth of field (blurred / soft bokeh)
+  so the subject remains the focal point (Pieters & Wedel 2004 — subject ≤55% but
+  background can carry contextual cues)
+- Background tones must remain within the COLOR PALETTE (no off-palette drift)
+- Avoid heavy clutter, busy patterns, or text/signs in the background
+- Avoid pure flat color backgrounds — they lose Mandel & Johnson 2002 priming effect
+- The background should evoke the product's natural setting (office for finance,
+  cafe for coffee, clinic for medical) without overpowering the model+product
+`.trim();
+
+/**
+ * FACE / SUBJECT PROPORTION FRAMEWORK — shot type + face % 학술 근거.
+ *
+ *  - Archer et al. (1983) Face-ism Index: face/total body 비율 ↑ → 지능·야심·진지함
+ *    perception ↑. 비율 ↓ → 라이프스타일·신체 강조 (패션·럭셔리).
+ *  - Sundar (2008) J of Adv: 풀바디 = lifestyle/aspirational, close-up = emotional.
+ *  - Septianto et al. (2024): close-up=rational, long-shot=emotional.
+ *  - D'Alessandro & Chitty (2011): 패션 광고는 모델 body shape이 brand attitude 핵심.
+ *  - Bakhshi et al. (2014) CHI: 얼굴 보이면 engagement +38% — 단, 보이는 것이 핵심,
+ *    무조건 close-up일 필요는 없음.
+ *
+ * 업종별 권장 shot type은 industryDesignCode의 faceProportion 필드 참고.
+ */
+export const FACE_PROPORTION_FRAMEWORK = `
+FACE / SUBJECT PROPORTION (Archer 1983 face-ism + Sundar 2008 shot type):
+- Match the shot type to the product category (industry faceProportion):
+  · Fashion / clothing / luxury: full body or 3/4, face 8~15% of frame
+    (outfit is the hero; Sundar 2008 lifestyle convention; D'Alessandro 2011)
+  · Beauty / cosmetics / hair salon: close-up beauty shot, face 30~45%
+    (Archer 1983 high face-ism = product=face; Bakhshi face engagement maximized)
+  · Healthcare / professional / authority: 3/4 portrait, face 22~32%
+    (Archer 1983 mid-high face-ism = competence/trust)
+  · Food / cafe / drink: medium shot with food, face 18~24%
+    (food/product is hero, model in context)
+  · Tech / industrial / B2B: medium with product, face 18~26%
+  · Tourism / sport / lifestyle: wide cinematic, face 12~18%
+  · Default fallback: medium balanced, face 25~30%
+- Bakhshi 2014: face MUST remain clearly visible regardless of shot type (engagement +38%)
+- Pieters & Wedel 2004: total subject (model + product) ≤ 55~65% of frame
 `.trim();

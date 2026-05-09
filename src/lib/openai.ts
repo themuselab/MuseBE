@@ -221,7 +221,13 @@ const TONE_TO_COLOR: Record<AdCopyTone, string> = {
 
 /**
  * AdCopyResult → TextOverlay[] 어댑터.
- * Job.textOverlays JSON 저장용. cta는 우하단 zone에 독립 배치.
+ * Job.textOverlays JSON 저장용. headline + subhead만 레이어 생성.
+ *
+ * CTA 레이어는 의도적으로 생성하지 않음 — 자동 CTA 합성을 끄는 결정과 일관 처리.
+ * (이전 동작에서는 textOverlays에 CTA 레이어가 들어가 있어 편집 화면에서는
+ *  CTA가 보이고 다운로드(=캔버스 캡처)에 CTA가 포함되는 문제 보고됨.
+ *  CTA 컬럼·문자열은 DB에 그대로 남겨 둬서 사용자가 에디터의 "Add Text"로 직접
+ *  추가하려면 가능하지만, 자동 레이어로는 노출하지 않는다.)
  */
 export function adCopyToOverlays(copy: AdCopyResult): TextOverlay[] {
   const color = TONE_TO_COLOR[copy.tone];
@@ -259,21 +265,7 @@ export function adCopyToOverlays(copy: AdCopyResult): TextOverlay[] {
     });
   }
 
-  if (copy.cta) {
-    const layout = DEFAULT_OVERLAY_LAYOUT.cta;
-    overlays.push({
-      id: "cta",
-      content: copy.cta,
-      x: layout.x,
-      y: layout.y,
-      width: layout.width,
-      height: layout.height,
-      fontSize: 28,
-      fontWeight: "bold",
-      color,
-      textAlign: layout.textAlign,
-    });
-  }
+  // CTA 레이어 생성 의도적으로 제외 (위 docstring 참고).
 
   return overlays;
 }
