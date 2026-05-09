@@ -11,7 +11,7 @@ import { authErrors } from "../errors/authErrors";
 const BCRYPT_ROUNDS = 10;
 const REFRESH_TOKEN_DAYS = 7;
 const TEMP_CODE_SECONDS = 30;
-const PENDING_GOOGLE_MINUTES = 5;
+const PENDING_GOOGLE_MINUTES = 30;
 
 const generateRandomCode = (): string => crypto.randomBytes(32).toString("hex");
 
