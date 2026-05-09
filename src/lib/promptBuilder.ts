@@ -9,11 +9,19 @@
  * 학술 근거:
  * - Bakhshi et al. (2014) CHI 2014, p.969 — face engagement +38%
  * - Pieters & Wedel (2004) Journal of Marketing 68(2), p.43 — image size attention
+ * - Essiz (2025) Psychology & Marketing — luxury 광고 표정 강도
+ * - Peace, Miles & Johnston (2006) — Duchenne smile 진정성
+ * - Mandel & Johnson (2002) JCR 29(2) — 컨텍스추얼 배경 priming
+ * - Archer et al. (1983) Face-ism Index — face/body 비율 perception
+ * - Sundar (2008) J of Adv — shot type by category
  */
 import { getDesignCode } from "./industryDesignCode";
 import {
   ACADEMIC_LAYOUT_RULES,
+  CONTEXTUAL_BACKGROUND_FRAMEWORK,
+  EXPRESSION_FRAMEWORK,
   FACE_PRESENTATION_RULES,
+  FACE_PROPORTION_FRAMEWORK,
   QUALITY_RULES,
   TEXT_FREE_RULES,
 } from "./promptTemplates";
@@ -64,6 +72,14 @@ Face must be clearly visible (Bakhshi CHI 2014 — engagement +38%).
 
 ${FACE_PRESENTATION_RULES}
 
+═══ EXPRESSION (industry-specific, Essiz 2025 + Peace 2006) ═══
+${code.expressionGuide}
+${EXPRESSION_FRAMEWORK}
+
+═══ FACE / SUBJECT PROPORTION (Archer 1983 + Sundar 2008) ═══
+${code.faceProportion}
+${FACE_PROPORTION_FRAMEWORK}
+
 ═══ LAYOUT (Strict Zone Allocation) ═══
 ${code.layout}
 Aspect ratio: ${aspect} ${aspectDescription(aspect)}.
@@ -82,9 +98,13 @@ ${accentLine}
 - Strict adherence to these EXACT hex values — no off-brand color drift
 - Do NOT warm-shift cool palettes (e.g., navy must stay navy, not amber/sand)
 - Do NOT cool-shift warm palettes (e.g., caramel must stay caramel, not gray)
-- Background MUST be a single muted desaturated tone (avoid vivid orange/red unless
-  palette explicitly includes that hue as Primary or Secondary)
+- Background tones MUST stay within these palette colors (no vivid orange/red unless
+  palette explicitly includes that hue)
 - Rationale: ${code.paletteRationale}
+
+═══ BACKGROUND (contextual, Mandel & Johnson 2002) ═══
+${code.backgroundContext}
+${CONTEXTUAL_BACKGROUND_FRAMEWORK}
 
 ═══ IMAGE STYLE ═══
 ${code.imageStyle}

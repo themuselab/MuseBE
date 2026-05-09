@@ -7,6 +7,7 @@ import { composeAdImage, recommendAdCopy, adCopyToOverlays } from "../lib/openai
 import type { AdCopyResult } from "../lib/openai";
 import { overlayKoreanText } from "../lib/pilClient";
 import { buildAdImagePrompt } from "../lib/promptBuilder";
+import { getDesignCode } from "../lib/industryDesignCode";
 import { TEXT_FREE_RULES } from "../lib/promptTemplates";
 import {
   saveBuffer,
@@ -61,7 +62,13 @@ const isWearableItem = (item: string): boolean =>
 
 const buildComposePrompt = (params: {
   item?: string | null;
+  industry?: string | null;
 }): string => {
+  // industry 디자인 코드를 받아 palette·backgroundContext를 compose prompt에도 주입.
+  // 이 단계가 빠지면 GPT compose가 의자·소품·벽 색을 자유 결정해 palette 위반(예:
+  // 패션·의류 cream/검정/navy palette인데 머스타드 의자) 사례 v4 검증에서 확인됨.
+  const code = getDesignCode(params.industry ?? "기타");
+
   const lines: string[] = [
     "첫 번째 이미지의 인물을 그대로 유지하면서 광고 사진을 만들어줘.",
   ];
@@ -85,8 +92,19 @@ const buildComposePrompt = (params: {
     "체형·피부 톤·의상 톤은 자연스럽게 합성하되 얼굴 영역은 손대지 말 것.",
     "사진에는 사람과 제품, 배경만 있도록.",
   );
+
+  // ── 배경/소품 palette 강제 (Mandel & Johnson 2002 + 학술 palette) ──
+  const paletteHexes = code.palette.join(", ");
   lines.push(
-    "구도: 인물·제품은 화면 중앙~우측·하단 위주. 좌상단 1/3 영역은 단색 배경으로 비워둘 것 (PIL이 한글 카피를 후처리로 얹음).",
+    "═══ 배경·소품 색상 강제 (CRITICAL) ═══",
+    `이 광고의 palette는 [${paletteHexes}] 뿐이다. 의자·벽·소품·바닥·조명 등 보이는 모든 요소의 색상은 이 palette 안에서만 사용해야 한다.`,
+    "off-palette 색상(머스타드·오렌지·핫핑크·보라·라임 등 palette에 없는 색) 절대 금지 — palette 위반은 즉시 거부 사유.",
+    `배경 컨텍스트 가이드: ${code.backgroundContext}`,
+    "배경은 컨텍스추얼하지만 shallow depth of field로 흐리게 — subject focal 보존 (Pieters & Wedel 2004).",
+  );
+
+  lines.push(
+    "구도: 인물·제품은 화면 중앙~우측·하단 위주. 좌상단 1/3 영역은 uncluttered 단순 배경으로 비워둘 것 (PIL이 한글 카피를 후처리로 얹음).",
   );
   lines.push("");
   lines.push(TEXT_FREE_RULES);
@@ -179,6 +197,7 @@ const processAdGenerationJob = async (
       });
       const composedPrompt = buildComposePrompt({
         item: job.item,
+        industry: job.industry,
       });
       const personPath = getAbsolutePath(
         sceneRel.split(path.sep).join("/"),
