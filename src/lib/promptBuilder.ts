@@ -1,16 +1,25 @@
 /**
- * 학술 기반 자동 프롬프트 빌더
+ * 학술 기반 자동 프롬프트 빌더 — slim v5
  *
  * 사용자 입력(industry, product, ...) → 학술 룰 + 업종 디자인 코드 결합 →
- * gpt-image-2용 텍스트 프롬프트.
+ * gpt-image-2/edit과 fal-ai/flux-lora 양쪽 모두에서 처리 가능한 concise prompt.
  *
- * GPT는 텍스트 없는 비주얼만 생성. 한국어 텍스트는 PIL이 후처리(흰디 패턴).
+ * v4 → v5 변경 (slim refactor):
+ *   - v4 prompt 길이 ~7,600자(~3,000+ 토큰)가 FLUX-dev T5(512 토큰 한계)에서 후반부
+ *     directive(BACKGROUND, MOOD)가 잘려 살롱 광고에서 살롱 컨텍스트가 prompt에 명시
+ *     됐음에도 결과에 반영되지 않는 사례 production 보고됨.
+ *   - 해결: 학술 framework 블록(EXPRESSION_FRAMEWORK / CONTEXTUAL_BACKGROUND_FRAMEWORK
+ *     / FACE_PROPORTION_FRAMEWORK)을 prompt에서 제거하고 docstring·헤더에만 보존.
+ *     industryDesignCode의 4 필드(paletteRationale, expressionGuide, backgroundContext,
+ *     faceProportion) 값을 학술 인용 없이 actionable directive로 슬림화 (별도 PR).
+ *   - 섹션 순서: SUBJECT → SHOT → EXPRESSION → BACKGROUND → COLORS → STYLE → MOOD →
+ *     FACE STRUCTURE → LAYOUT → QUALITY → NO TEXT (기존 BACKGROUND 후반 → 전반으로 이동)
+ *   - 결과 길이: ~1,500~2,000자 (T5 512 토큰 안에 들어감)
  *
- * 학술 근거:
- * - Bakhshi et al. (2014) CHI 2014, p.969 — face engagement +38%
- * - Pieters & Wedel (2004) Journal of Marketing 68(2), p.43 — image size attention
+ * 학술 근거 (전체 framework citations은 industryDesignCode.ts 헤더 참고):
+ * - Bakhshi et al. (2014) CHI 2014 — face engagement +38%
+ * - Pieters & Wedel (2004) JoM 68(2) — image size attention
  * - Essiz (2025) Psychology & Marketing — luxury 광고 표정 강도
- * - Peace, Miles & Johnston (2006) — Duchenne smile 진정성
  * - Mandel & Johnson (2002) JCR 29(2) — 컨텍스추얼 배경 priming
  * - Archer et al. (1983) Face-ism Index — face/body 비율 perception
  * - Sundar (2008) J of Adv — shot type by category
@@ -18,10 +27,7 @@
 import { getDesignCode } from "./industryDesignCode";
 import {
   ACADEMIC_LAYOUT_RULES,
-  CONTEXTUAL_BACKGROUND_FRAMEWORK,
-  EXPRESSION_FRAMEWORK,
   FACE_PRESENTATION_RULES,
-  FACE_PROPORTION_FRAMEWORK,
   QUALITY_RULES,
   TEXT_FREE_RULES,
 } from "./promptTemplates";
@@ -48,7 +54,6 @@ export function buildAdImagePrompt(input: AdInput): string {
   const aspect = input.aspectRatio ?? "9:16";
 
   // 모델 페르소나 — 사용자 입력 우선, 없으면 디자인 코드 기본값.
-  // gender만 있어도 적용 (face swap이 face만 교체하므로 의상·포즈는 base scene gender 따름).
   let persona = input.modelPersona ?? code.modelPersona;
   if (input.modelGender) {
     const gender = input.modelGender === "F" ? "female" : "male";
@@ -58,75 +63,50 @@ export function buildAdImagePrompt(input: AdInput): string {
     persona = `Korean ${gender} model${ageSuffix}, ${personaCore}`;
   }
 
-  const frameworkNote = `[Academic basis: ${code.framework} — ${code.academicRef}]`;
   const accentLine = code.palette[2] ? `Accent: ${code.palette[2]}` : "";
 
+  // ── slim prompt: 핵심 directive를 prompt 전반부에 배치해 FLUX T5 512 토큰 안에 ──
   return `
-${frameworkNote}
+Korean ${input.industry} advertisement, premium ad agency quality.
 
-Korean ${input.industry} advertisement campaign — premium professional ad agency quality.
+═══ SUBJECT ═══
+${persona}, authentic Korean facial features, face clearly visible.
 
-═══ MODEL ═══
-Featuring authentic ${persona}, natural Korean facial features.
-Face must be clearly visible (Bakhshi CHI 2014 — engagement +38%).
-
-${FACE_PRESENTATION_RULES}
-
-═══ EXPRESSION (industry-specific, Essiz 2025 + Peace 2006) ═══
-${code.expressionGuide}
-${EXPRESSION_FRAMEWORK}
-
-═══ FACE / SUBJECT PROPORTION (Archer 1983 + Sundar 2008) ═══
+═══ SHOT (composition) ═══
 ${code.faceProportion}
-${FACE_PROPORTION_FRAMEWORK}
 
-═══ LAYOUT (Strict Zone Allocation) ═══
-${code.layout}
-Aspect ratio: ${aspect} ${aspectDescription(aspect)}.
+═══ EXPRESSION ═══
+${code.expressionGuide}
 
-${ACADEMIC_LAYOUT_RULES}
+═══ BACKGROUND ═══
+${code.backgroundContext}
+Render with shallow depth of field (soft bokeh) — subject must remain the focal point.
+Background tones must stay within the COLOR PALETTE — no off-palette drift.
 
-═══ TYPOGRAPHY (Reference Only — DO NOT render text) ═══
-${code.typography}
-(Note: text styling is for PIL post-processing reference only.
- The image must contain NO text — see TEXT-FREE rules below.)
-
-═══ COLOR PALETTE (research-backed — paletteRationale 참조) ═══
+═══ COLOR PALETTE ═══
 Primary: ${code.palette[0]}
 Secondary: ${code.palette[1]}
 ${accentLine}
-- Strict adherence to these EXACT hex values — no off-brand color drift
-- Do NOT warm-shift cool palettes (e.g., navy must stay navy, not amber/sand)
-- Do NOT cool-shift warm palettes (e.g., caramel must stay caramel, not gray)
-- Background tones MUST stay within these palette colors (no vivid orange/red unless
-  palette explicitly includes that hue)
-- Rationale: ${code.paletteRationale}
-
-═══ BACKGROUND (contextual, Mandel & Johnson 2002) ═══
-${code.backgroundContext}
-${CONTEXTUAL_BACKGROUND_FRAMEWORK}
+Strict adherence to these EXACT hex values — no off-brand color drift.
+${code.paletteRationale}
 
 ═══ IMAGE STYLE ═══
 ${code.imageStyle}
 
 ═══ MOOD ═══
-${code.mood}
-Reference brands/campaigns: ${code.examples}.
+${code.mood}. Reference: ${code.examples}.
 
-═══ APPEAL TYPE ═══
-${code.appeal} appeal — ${code.expression}.
+${FACE_PRESENTATION_RULES}
 
-${TEXT_FREE_RULES}
+═══ LAYOUT ═══
+${code.layout}
+Aspect ratio: ${aspect} ${aspectDescription(aspect)}.
+${ACADEMIC_LAYOUT_RULES}
 
 ═══ QUALITY ═══
 ${QUALITY_RULES}
 
-═══ OUTPUT REQUIREMENTS ═══
-- Print-ready ad poster quality
-- High resolution detail
-- No watermarks, no stock-photo logos
-- Clean composition with intentional negative space
-- Top-left and bottom-right zones must remain BLANK for PIL text overlay
+${TEXT_FREE_RULES}
 `.trim();
 }
 
@@ -135,12 +115,13 @@ ${QUALITY_RULES}
  */
 export function buildAdImagePromptShort(input: AdInput): string {
   const code = getDesignCode(input.industry);
-  const layoutPreview = code.layout.slice(0, 200);
   return (
-    `Korean ${input.industry} ad poster, ${code.mood}, ${layoutPreview}, ` +
-    `palette ${code.palette.slice(0, 3).join(" ")}, ` +
-    `reference: ${code.examples}, ` +
-    `model: ${code.modelPersona}. ` +
+    `Korean ${input.industry} ad poster, ${code.mood}, ` +
+    `${code.faceProportion}, ${code.expressionGuide} ` +
+    `Background: ${code.backgroundContext} ` +
+    `Palette: ${code.palette.slice(0, 3).join(" ")}, ` +
+    `Reference: ${code.examples}, ` +
+    `Model: ${code.modelPersona}. ` +
     `DO NOT render any text — visual only, blank zones for PIL overlay.`
   );
 }
