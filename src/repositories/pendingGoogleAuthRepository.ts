@@ -11,6 +11,9 @@ export const findByCode = (code: string) =>
 export const deleteByCode = (code: string) =>
   prisma.pendingGoogleAuth.delete({ where: { code } });
 
+export const deleteByGoogleId = (googleId: string) =>
+  prisma.pendingGoogleAuth.deleteMany({ where: { googleId } });
+
 export const deleteExpired = () =>
   prisma.pendingGoogleAuth.deleteMany({
     where: { expiresAt: { lt: new Date() } },
