@@ -122,6 +122,7 @@ export const handleGoogleCallback = async (code: string) => {
 
   const tempCode = generateRandomCode();
   const expiresAt = new Date(Date.now() + PENDING_GOOGLE_MINUTES * 60 * 1000);
+  await pendingGoogleAuthRepository.deleteByGoogleId(googleUser.googleId);
   await pendingGoogleAuthRepository.create(tempCode, googleUser.email, googleUser.googleId, expiresAt);
 
   return { type: "signup" as const, pendingCode: tempCode };
