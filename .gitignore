@@ -3,3 +3,11 @@ dist
 .env
 
 /src/generated/prisma
+
+# pil-service / scripts dev artifacts
+pil-service/__pycache__/
+pil-service/test_output/
+pil-service/test_local.py
+pil-service/vm_test_v3.sh
+scripts/test_output_e2e/
+/scripts_*.cjs
