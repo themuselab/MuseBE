@@ -1,6 +1,12 @@
 type OverlayInput = {
   baseUrl: string;
-  headline: string;
+  // v3 — GPT-vision spec 경로 (industry + heroText 모두 있을 때 활성화)
+  industry?: string;
+  heroText?: string;
+  subText?: string;
+  brandText?: string;
+  // 구버전 — 단순 top-left 오버레이 (BE 기존 호출자 호환)
+  headline?: string;
   subhead?: string;
   headlineColor?: string;
   subheadColor?: string;
@@ -18,21 +24,33 @@ export async function overlayKoreanText(
   const url = process.env.PIL_SERVICE_URL;
   if (!url) throw new Error("PIL_SERVICE_URL env is required");
 
+  // v3 경로 우선 — industry+heroText 있으면 GPT-vision spec 기반 design-level 렌더링.
+  // 둘 다 있을 때만 v3 활성화. 기존 호출(headline만 전달)은 legacy 경로로 폴백돼 동작 유지.
+  const usingV3 = !!(input.industry && input.heroText);
+
+  const body = usingV3
+    ? {
+        base_url: input.baseUrl,
+        industry: input.industry,
+        hero_text: input.heroText,
+        sub_text: input.subText ?? null,
+        brand_text: input.brandText ?? null,
+        template: input.template ?? "instagram_square",
+      }
+    : {
+        base_url: input.baseUrl,
+        headline: input.headline ?? "",
+        subhead: input.subhead ?? null,
+        headline_color: input.headlineColor ?? "#FFFFFF",
+        subhead_color: input.subheadColor ?? "#FFFFFF",
+        logo: input.logo ?? null,
+        template: input.template ?? "instagram_square",
+      };
+
   const res = await fetch(`${url}/overlay`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      base_url: input.baseUrl,
-      headline: input.headline,
-      subhead: input.subhead ?? null,
-      headline_color: input.headlineColor ?? "#FFFFFF",
-      subhead_color: input.subheadColor ?? "#FFFFFF",
-      // logo 미지정 시 PIL 측에서 워터마크 미삽입(null) — 사용자 카피·CTA만 노출.
-      // 기존엔 "MUSE" 하드코딩 워터마크가 광고 하단에 박혀있어 다운로드 시에도
-      // 사용자 의도와 무관한 브랜드명이 노출되는 문제가 있었음.
-      logo: input.logo ?? null,
-      template: input.template ?? "instagram_square",
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

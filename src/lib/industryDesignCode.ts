@@ -253,7 +253,7 @@ export const INDUSTRY_DESIGN_CODE: Record<string, DesignCode> = {
     academicRef: "hedonic + abstract image 매칭 + Bakhshi face +38%",
     paletteRationale: "Pearl/blush low-saturation=luxury hedonic; gold=prestige.",
     expressionGuide: "Serene soft smile with gentle confidence, eyes warm, mouth softly closed.",
-    backgroundContext: "Blurred bath or spa setting with natural window light, soft pastel surface, dewy ingredient hints.",
+    backgroundContext: "Blurred minimalist beauty studio or luxury dressing room with natural window light, marble or soft pastel vanity surface with skincare bottles out of focus. NO bathtub, NO shower, NO water.",
     faceProportion: "Close-up beauty hero shot, face 30~45% of frame, skin and product are the focus.",
     modelPersona: "fresh dewy 20s OR mature elegant 30~40s, beauty close-up",
     appeal: "emotional + sensorial",
