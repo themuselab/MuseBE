@@ -325,13 +325,20 @@ const processAdGenerationJob = async (
     let finalBuffer: Buffer;
     if (finalHeadline && pilBaseUrl) {
       try {
+        // v3 경로 — industry + heroText 전달. PIL이 GPT-vision으로 typography spec 생성 후
+        // pure 검정/흰색·face-aware·hairline 등 럭셔리 톤으로 렌더. industry 미설정 시
+        // pilClient가 자동으로 legacy 경로로 폴백.
         const overlayResult = await overlayKoreanText({
           baseUrl: pilBaseUrl,
+          industry: job.industry ?? undefined,
+          heroText: finalHeadline,
+          subText: composePilSubhead(finalSubhead, finalCta),
+          brandText: undefined, // 브랜드 워터마크 자동 삽입 안 함 — v13에서도 동일.
+          // legacy fallback용 필드 — pil-service에서 v3 spec 생성 실패 시 사용.
           headline: finalHeadline,
           subhead: composePilSubhead(finalSubhead, finalCta),
           headlineColor,
           subheadColor,
-          // logo 생략 — 사용자가 입력한 카피·CTA 외에 브랜드 워터마크 추가하지 않음.
           template: "instagram_square",
         });
         finalBuffer = overlayResult.buffer;

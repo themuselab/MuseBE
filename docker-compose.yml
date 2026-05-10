@@ -32,6 +32,14 @@ services:
       context: ./pil-service
     container_name: muse-pil
     restart: unless-stopped
+    # v3 GPT-vision typography spec 생성을 위한 OpenAI 키. 미주입 시 spec 생성 실패하면
+    # legacy 단순 오버레이 경로로 자동 폴백되므로 서비스는 동작하지만 럭셔리 톤이 사라짐.
+    env_file:
+      - .env
+    environment:
+      # 한정된 키만 노출 (.env 전체는 BE만 알도록 — pil-service는 OPENAI만 필요).
+      # env_file로 전부 들어오긴 하지만 명시적으로 알려진 의존만 적어둠.
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
 
   be:
     build:
